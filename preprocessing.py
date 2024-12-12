@@ -1,13 +1,11 @@
 
 import pandas as pd
-from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import CountVectorizer
 import numpy as np
-from typing import Optional
 
 def ts_train_test_split(X: pd.DataFrame, y: pd.Series, outcome_col: str, date_col: str, fdw: int, holdout_window: int):
     """
@@ -18,6 +16,9 @@ def ts_train_test_split(X: pd.DataFrame, y: pd.Series, outcome_col: str, date_co
     def _ts_preproc(inp_tbl, inp_y):   
         preproc_tbl = (inp_tbl
         .pipe(lambda x: x.assign(**{f"lagged_{outcome_col}_{i}m": x[outcome_col].shift(i) for i in range(1, fdw + 1)}))
+        .pipe(lambda x: x.assign(**{f"logged_lagged_{outcome_col}_{i}m": np.log1p(x[outcome_col].shift(i)) for i in range(1, fdw + 1)}))
+        .pipe(lambda x: x.assign(**{f"rolling_avg_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).mean() for i in range(1, fdw + 1)}))
+        .pipe(lambda x: x.assign(**{f"min_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).min() for i in range(1, fdw + 1)}))
         # Drop the original date and outcome columns
         .drop([date_col, outcome_col], axis=1)
         # Rowwise deletion of missing values
@@ -53,26 +54,6 @@ def ts_train_test_split(X: pd.DataFrame, y: pd.Series, outcome_col: str, date_co
 
     return X_train, X_test, y_train, y_test
 
-class TimeSeriesTransformer(BaseEstimator, TransformerMixin):
-    def __init__(self, date_var: str, outcome_var: str, fdw: Optional[int]=None):
-        self.date_var = date_var
-        self.outcome_var = outcome_var
-        self.fdw = fdw
-
-    def fit(self, X: pd.DataFrame, y: pd.Series = None):
-        # No fitting necessary for this transformer
-        return self
-    
-    def transform(self, X: pd.DataFrame):
-        """
-        Preprocess a time series DataFrame by creating lagged and logged lagged features.
-        """
-        return (X
-                .pipe(lambda x: x.assign(**{f"lagged_{self.outcome_var}_{i}m": x[self.outcome_var].shift(i) for i in range(1, self.fdw + 1)}))
-                # Drop the original date and outcome columns
-                .drop([self.date_var, self.outcome_var], axis=1)
-               )
-    
 # Custom preprocessor 
 class Prepreprocessor:
     """
@@ -115,8 +96,6 @@ class Prepreprocessor:
             ('vectorizer', CountVectorizer())
         ])
 
-        # ('ts', time_series_transformer, outcome_col)
-
         # Combine preprocessing steps
         preprocessor = ColumnTransformer(
             transformers=[
@@ -127,62 +106,3 @@ class Prepreprocessor:
         
         return preprocessor
     
-
-
-#####
-
-
-    def build_preprocessor_experimental(self, X: pd.DataFrame, outcome_col: Optional[str] = None, fdw: Optional[str] = None):
-        """
-        Builds a ColumnTransformer pipeline for preprocessing numeric, categorical, and text columns.
-
-        Parameters:
-        - X (pd.DataFrame): The input DataFrame.
-        - outcome_col (str) (optional): The name of the outcome column.
-
-        Returns:
-        - ColumnTransformer: The preprocessing pipeline.
-        """
-
-        ## Preprocessing pipeline
-        # Identify numerical, categorical, text, and outcome columns 
-        numeric_cols = X.select_dtypes(include=['int64', 'float64']).columns
-        numeric_cols = [col for col in numeric_cols if col != outcome_col]
-        categorical_cols = X.select_dtypes(include=['object']).columns
-        text_cols = X.select_dtypes(include=['string']).columns
-        outcome_cols = [outcome_col, "date"]
-
-        # Preprocessing for numerical data
-        numeric_transformer = Pipeline(steps=[
-            ('imputer', SimpleImputer(strategy='median')),
-            ('scaler', StandardScaler())
-        ])
-
-        # Preprocessing for categorical data
-        categorical_transformer = Pipeline(steps=[
-            ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
-            ('onehot', OneHotEncoder(handle_unknown='ignore'))
-        ])
-
-        # Preprocessing for textual data
-        text_transformer = Pipeline(steps=[
-            ('vectorizer', CountVectorizer())
-        ])
-
-        transformer_lst = [('num', numeric_transformer, numeric_cols),
-         ('cat', categorical_transformer, categorical_cols),
-         *[('text', text_transformer, text_col) for text_col in text_cols]
-         ]
-
-        if outcome_cols[0]:
-            print("Using time series transformer")
-            ts_transformer = Pipeline(steps=[
-                ('ts_preproc', TimeSeriesTransformer(date_var='date', outcome_var=outcome_cols[0], fdw=fdw)),
-                ('imputer', SimpleImputer(strategy='median'))
-                ])
-            transformer_lst.append(('ts', ts_transformer, outcome_cols))
-
-        # Combine preprocessing steps
-        preprocessor = ColumnTransformer(transformers=transformer_lst)
-
-        return preprocessor

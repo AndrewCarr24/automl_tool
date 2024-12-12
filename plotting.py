@@ -18,7 +18,17 @@ class PlotTools:
         pass
 
     def get_shap_values(self, fitted_pipeline: Pipeline, X: pd.DataFrame, y: pd.Series):
-
+        """
+        Calculate SHAP values for the fitted pipeline and return a DataFrame of feature importance scores.
+    
+        Parameters:
+        fitted_pipeline (Pipeline): The fitted pipeline containing the preprocessor and model.
+        X (pd.DataFrame): The input feature matrix.
+        y (pd.Series): The target variable.
+    
+        Returns:
+        pd.DataFrame: A DataFrame containing the feature importance scores based on SHAP values.
+        """
         # Get masker for shap Explainer function 
         X_transformed = fitted_pipeline.best_estimator_['preprocessor'].transform(X)
         if isinstance(fitted_pipeline.best_estimator_['model'], XGBWithEarlyStoppingClassifier) | isinstance(fitted_pipeline.best_estimator_['model'], XGBWithEarlyStoppingRegressor):
@@ -130,15 +140,12 @@ class PlotTools:
         sns.despine(left=False, bottom=False)
 
         if logo:
-
             # Get the directory of the current file
             current_dir = os.path.dirname(os.path.abspath(__file__))
             # Construct the absolute path to the logo image
             logo_path = os.path.join(current_dir, 'img', 'enact_logo.png')
-    
             # Add logo to the bottom right corner of the plot, under the x-axis
             logo = mpimg.imread(logo_path)
-
             # Create a new set of axes for the logo
             logo_ax = fig.add_axes([.8, .02, 0.1, 0.1], anchor='SE', zorder=10)
             logo_ax.imshow(logo)
@@ -231,13 +238,11 @@ class PlotTools:
             plt.scatter(grid_vals, pdp_output['average'][0], color='#038747')
 
             if logo:
-
                 # Get the directory of the current file
                 current_dir = os.path.dirname(os.path.abspath(__file__))
                 # Construct the absolute path to the logo image
                 logo_path = os.path.join(current_dir, 'img', 'enact_logo.png')
                 logo = mpimg.imread(logo_path)
-
                 # Create a new set of axes for the logo
                 logo_ax = fig.add_axes([0.82, -0.03, 0.1, 0.1], anchor='SE', zorder=10)
                 logo_ax.imshow(logo)
