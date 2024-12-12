@@ -15,11 +15,9 @@ from sklearn.metrics import make_scorer, log_loss, mean_absolute_error
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.model_selection import TimeSeriesSplit
 import warnings
-# Suppress the specific warning about a worker stopping
+# Suppress worker stopping warnings
 warnings.filterwarnings("ignore", message="A worker stopped while some jobs were given to the executor")
-# 
 
-    
 # AutoML class to automate the machine learning pipeline
 class AutoML:
     def __init__(self, X: pd.DataFrame, y: pd.Series, outcome: str, time_series: bool = False):
@@ -48,31 +46,18 @@ class AutoML:
             self.scoring_func = mean_absolute_error
             self.response_method = 'predict'
 
-    def build_pipeline(self):
-    
-        preprocessor = Prepreprocessor().build_preprocessor(self.X)
-        
-        # Create the pipeline
-        tmp_pipeline = Pipeline(steps=[
-            ('preprocessor', preprocessor),
-            ('model', self.boosting_model)
-        ])
-
-        self.pipeline = tmp_pipeline
-
-    def fit_pipeline(self, ts_outcome=None, fdw=None, holdout_window=None):
+    def fit_pipeline(self, holdout_window=None):
 
         # Define the cross-validation object based on whether time series or not
         if self.time_series:
-            ts_outcome = self.target
             cv_obj = TimeSeriesSplit(n_splits=5, test_size=holdout_window, gap=0)
-            if fdw is None or holdout_window is None or ts_outcome is None:
-                raise ValueError('For time series modeling, the fdw (feature derivation window) and holdout_window parameters must be specified.')
+            if holdout_window is None:
+                raise ValueError('For time series modeling, the holdout_window parameters must be specified.')
         else:
             cv_obj = 5
 
         # Build the preprocessor
-        preprocessor = Prepreprocessor().build_preprocessor_experimental(self.X, ts_outcome, fdw)
+        preprocessor = Prepreprocessor().build_preprocessor(self.X)
         
         # Create the pipeline
         tmp_pipeline = Pipeline(steps=[
@@ -130,49 +115,4 @@ class AutoML:
         tmp_plts = PlotTools().get_pdp(self.fitted_pipeline, self.X, logo, self.target)
         self.partial_dependence_plots = tmp_plts
     
-    
-    ##########
 
-
-
-
-    def fit_pipeline2(self, holdout_window=None):
-
-        # Define the cross-validation object based on whether time series or not
-        if self.time_series:
-            cv_obj = TimeSeriesSplit(n_splits=5, test_size=holdout_window, gap=0)
-            if holdout_window is None:
-                raise ValueError('For time series modeling, the holdout_window parameters must be specified.')
-        else:
-            cv_obj = 5
-
-        # Build the preprocessor
-        preprocessor = Prepreprocessor().build_preprocessor(self.X)
-        
-        # Create the pipeline
-        tmp_pipeline = Pipeline(steps=[
-            ('preprocessor', preprocessor),
-            ('model', self.boosting_model)
-        ])
-
-        # Define the parameter grid for GridSearchCV
-        parameters = [
-            {
-                'model': [self.boosting_model],
-                'model__n_estimators': [1000],
-                'model__early_stopping_rounds': [5],
-                'model__learning_rate': [0.08],
-                'model__max_depth': [2, 3],
-                'model__colsample_bytree': [0.3],
-            },
-            {
-                'model': [self.elastic_net_model],
-                'model__l1_ratio': [0, .05, .1, .5, .8, 1],
-                'model__alpha': [.1, .01, .005, .001, .00001, 5e-6],
-            }
-            ]
-
-        # Perform grid search with cross-validation
-        scoring = make_scorer(self.scoring_func, greater_is_better=False, response_method=self.response_method)
-        grid_tmp = GridSearchCV(tmp_pipeline, parameters, cv=cv_obj, n_jobs=-1, verbose=0, scoring=scoring)
-        self.fitted_pipeline = grid_tmp.fit(self.X, self.y)
