@@ -48,6 +48,9 @@ class AutoML:
 
     get_partial_dependence_plots(self, logo: bool = False):
         Generates partial dependence plots for the fitted pipeline.
+
+    get_backtest_plots(self):
+        Generates backtest plots for the fitted pipeline (only works for time series).
     """
     def __init__(self, X: pd.DataFrame, y: pd.Series, outcome: str, time_series: bool = False):
         self.X = X
@@ -87,9 +90,10 @@ class AutoML:
         """
         # Define the cross-validation object based on whether time series or not
         if self.time_series:
-            cv_obj = TimeSeriesSplit(n_splits=5, test_size=holdout_window, gap=0)
             if holdout_window is None:
                 raise ValueError('For time series modeling, the holdout_window parameters must be specified.')
+            cv_obj = TimeSeriesSplit(n_splits=5, test_size=holdout_window, gap=0)
+            self.holdout_window = holdout_window
         else:
             cv_obj = 5
 
@@ -176,5 +180,19 @@ class AutoML:
         """
         tmp_plts = PlotTools().get_pdp(self.fitted_pipeline, self.X, logo, self.target)
         self.partial_dependence_plots = tmp_plts
+
+    def get_backtest_plots(self):
+        """
+        Generate backtest plots for the fitted pipeline.
+
+        Returns:
+        None: The method sets the backtest_plots attribute with the generated plots.
+        """
+        if not self.time_series:
+            raise ValueError('Backtest plots are only available for time series data.')
+        
+        tmp_plts = PlotTools().get_bt_plts(self.fitted_pipeline, self.X, self.y, self.holdout_window)
+        self.backtest_plots = tmp_plts
+
     
 

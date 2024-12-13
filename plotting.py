@@ -12,6 +12,7 @@ from automl_tool.estimation import XGBWithEarlyStoppingClassifier, XGBWithEarlyS
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.utils import Bunch
 import os 
+from sklearn.model_selection import TimeSeriesSplit
 
 class PlotTools:
     def __init__(self):
@@ -20,12 +21,12 @@ class PlotTools:
     def get_shap_values(self, fitted_pipeline: Pipeline, X: pd.DataFrame, y: pd.Series):
         """
         Calculate SHAP values for the fitted pipeline and return a DataFrame of feature importance scores.
-    
+
         Parameters:
         fitted_pipeline (Pipeline): The fitted pipeline containing the preprocessor and model.
         X (pd.DataFrame): The input feature matrix.
         y (pd.Series): The target variable.
-    
+
         Returns:
         pd.DataFrame: A DataFrame containing the feature importance scores based on SHAP values.
         """
@@ -267,6 +268,52 @@ class PlotTools:
                 pdp_plots[varname] = _plot_pdp(pdp_output, grid_vals, plt_len, rotation_val, xtick_label_loc, logo)
 
         return pdp_plots
+    
+    def get_bt_plts(self, fitted_pipeline, X_train, y_train, inp_holdout_window):
+        """
+        Generate backtest plots for time series model.
+        """    
+        ts_splt = TimeSeriesSplit(n_splits=5, test_size=inp_holdout_window, gap=0)
+        outcome = y_train.name.replace('_', ' ').title()
+
+        backtest_plts = {}
+        for idx, idx_arr in enumerate(ts_splt.split(X_train)):
+
+            fig, ax = plt.subplots(figsize=(20, 5))
+            plt.style.use("opinionated_rc")
+
+            X_splt = X_train.iloc[idx_arr[1]]
+            splt1_preds = fitted_pipeline.best_estimator_.predict(X_splt)
+
+            # Extract the actual values for the last 18 entries
+            y_splt = y_train.iloc[idx_arr[1]]
+            actual_values = y_splt.to_numpy()
+
+            # Plot the actual values
+            ax.plot(X_splt.index, actual_values, label='Actual', color='black')
+
+            # Plot the predicted values
+            ax.plot(X_splt.index, splt1_preds, label='Predicted', color='#038747', linestyle='dashed')
+
+            # Add labels and title
+            ax.set_xlabel('')
+            ax.set_ylabel(f'{outcome}', size = 11, loc = 'center')
+            ax.set_title(f'{outcome} Backtest {idx+1}', size=18)
+
+            # Add a legend and nudge it down to the lower right
+            ax.legend(fontsize=11, loc='lower right', bbox_to_anchor=(1.04, .2))
+
+            ax.grid(True, which='both', linestyle='-', linewidth=0.8)
+            
+            # Add a caption
+            fig.text(.7, -.03, "Note: Predictions are based on a forecast window of 1. Each prediction is made from a forecast point 1 period prior to the prediction date.", wrap=True, horizontalalignment='center', fontsize=10)
+
+            plt.close(fig)
+            backtest_plts[f"bt{idx+1}"] = fig
+
+        return backtest_plts
+
+ 
 
 
 
