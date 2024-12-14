@@ -19,13 +19,14 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-[project.dependencies]
-pandas = ">=1.0"
-numpy = ">=1.18"
-scikit-learn = ">=0.24"
-shap = ">=0.39"
-seaborn = ">=0.11"
-matplotlib = ">=3.3"
+dependencies = [
+    "pandas>=1.0",
+    "numpy>=1.18",
+    "scikit-learn>=0.24",
+    "shap>=0.39",
+    "seaborn>=0.11",
+    "matplotlib>=3.3"
+]
 
 [project.urls]
 Homepage = "https://github.com/andrewcarr24/automl_tool"
