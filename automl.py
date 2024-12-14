@@ -3,9 +3,9 @@ import pandas as pd
 import numpy as np
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import GridSearchCV
-from automl_tool.preprocessing import Prepreprocessor
-from automl_tool.estimation import XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegressor
-from automl_tool.plotting import PlotTools
+from .preprocessing import Prepreprocessor
+from .estimation import XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegressor
+from .plotting import PlotTools
 from sklearn.metrics import make_scorer, log_loss, mean_absolute_error
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.model_selection import TimeSeriesSplit

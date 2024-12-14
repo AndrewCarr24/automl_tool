@@ -1,14 +1,14 @@
 
 from sklearn.pipeline import Pipeline
 import pandas as pd 
-from automl_tool.preprocessing import Prepreprocessor
+from .preprocessing import Prepreprocessor
 import shap
 import numpy as np
 from sklearn.inspection import permutation_importance, partial_dependence
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.image as mpimg
-from automl_tool.estimation import XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegressor
+from .estimation import XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegressor
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.utils import Bunch
 import os 
