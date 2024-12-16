@@ -13,7 +13,6 @@ from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.utils import Bunch
 import os 
 from sklearn.model_selection import TimeSeriesSplit
-# import opinionated
 
 class PlotTools:
     def __init__(self):
