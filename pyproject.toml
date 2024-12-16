@@ -33,3 +33,6 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/andrewcarr24/automl_tool"
+
+[tool.setuptools.package-data]
+automl_tool = ["automl_tool/assets/enact_logo.png", "automl_tool/styles/opinionated_rc.mplstyle"]
