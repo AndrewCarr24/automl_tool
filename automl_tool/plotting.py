@@ -110,7 +110,7 @@ class PlotTools:
             feature_importance_scores = feature_importance_scores.iloc[:top_k]
 
         # Plot feature importance scores
-        plt.style.use("styles/opinionated_rc.mplstyle")
+        plt.style.use("automl_tool/styles/opinionated_rc.mplstyle")
 
         # Set the rcParams
         plt.rcParams.update({
