@@ -12,6 +12,7 @@ from sklearn.model_selection import TimeSeriesSplit
 import warnings
 # Suppress worker stopping warnings
 warnings.filterwarnings("ignore", message="A worker stopped while some jobs were given to the executor")
+warnings.filterwarnings("ignore", message="invalid value encountered in cast")
 # Suppress warnings about max iterations reached before convergence
 # warnings.filterwarnings("ignore", message="Maximum number of iteration reached before convergence. Consider increasing max_iter to improve the fit.")
 
