@@ -13,6 +13,7 @@ from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.utils import Bunch
 import os 
 from sklearn.model_selection import TimeSeriesSplit
+# import opinionated
 
 class PlotTools:
     def __init__(self):
@@ -110,11 +111,9 @@ class PlotTools:
             feature_importance_scores = feature_importance_scores.iloc[:top_k]
 
         # Plot feature importance scores
-        
+
         # Get style_path
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        style_path = os.path.join(current_dir, 'styles', 'opinionated_rc.mplstyle')
-        plt.style.use(style_path)
+        plt.style.use("opinionated_rc")
 
         # Set the rcParams
         plt.rcParams.update({
