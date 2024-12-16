@@ -146,7 +146,7 @@ class PlotTools:
             # Get the directory of the current file
             current_dir = os.path.dirname(os.path.abspath(__file__))
             # Construct the absolute path to the logo image
-            logo_path = os.path.join(current_dir, 'img', 'enact_logo.png')
+            logo_path = os.path.join(current_dir, 'automl_tool', 'img', 'enact_logo.png')
             # Add logo to the bottom right corner of the plot, under the x-axis
             logo = mpimg.imread(logo_path)
             # Create a new set of axes for the logo
