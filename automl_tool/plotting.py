@@ -112,7 +112,14 @@ class PlotTools:
         # Plot feature importance scores
 
         # Get style_path
-        plt.style.use("opinionated_rc")
+        # Get the current directory of the script
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # Construct the full path to the style file
+        style_path = os.path.join(current_dir, 'styles', 'opinionated_rc.mplstyle')
+        plt.style.use(style_path)
+        
+        # plt.style.use("opinionated_rc")
 
         # Set the rcParams
         plt.rcParams.update({
