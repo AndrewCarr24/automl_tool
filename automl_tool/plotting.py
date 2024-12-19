@@ -111,14 +111,10 @@ class PlotTools:
 
         # Plot feature importance scores
 
-        # Get style_path
-        # Get the current directory of the script
+        # Get style
         current_dir = os.path.dirname(os.path.abspath(__file__))
-
-        # Construct the full path to the style file
         style_path = os.path.join(current_dir, 'styles', 'opinionated_rc.mplstyle')
         plt.style.use(style_path)
-        
         # plt.style.use("opinionated_rc")
 
         # Set the rcParams
@@ -236,7 +232,13 @@ class PlotTools:
         def _plot_pdp(pdp_output, grid_vals, plt_len, rotation_val, xtick_label_loc, logo):
                 
             fig, ax = plt.subplots(figsize=(plt_len, 4.5))
-            plt.style.use("opinionated_rc")
+
+            # Get style
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            style_path = os.path.join(current_dir, 'styles', 'opinionated_rc.mplstyle')
+            plt.style.use(style_path)
+            # plt.style.use("opinionated_rc")
+
             plt.rcParams.update({'grid.linestyle': '-',})
             plt.xlabel(f"Feature ({varname})", fontsize=11, loc='center')
             plt.ylabel(f"Target ({target})", fontsize=11, loc='center')        
