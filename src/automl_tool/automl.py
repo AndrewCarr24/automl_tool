@@ -64,7 +64,7 @@ class AutoML:
             raise ValueError('Target variable cannot be in the input feature matrix.')
 
         # Store boosting and linear classification/regression models
-        if self.y.dtype == object:
+        if self.y.dtype in [object, bool]:
             raise ValueError('Target variable must be numeric. For binary classification, convert target variable to integer with values 0 and 1. For regression, convert target variable to float.')
         elif self.y.dtype == int:
             if self.y.value_counts().shape[0] != 2:
@@ -97,6 +97,9 @@ class AutoML:
             self.holdout_window = holdout_window
         else:
             cv_obj = 5
+
+        # Convert boolean features to ints 
+        self.X = self.X.apply(lambda col: col.astype(int) if col.dtype == 'bool' else col)
 
         # Build the preprocessor
         preprocessor = Prepreprocessor().build_preprocessor(self.X)

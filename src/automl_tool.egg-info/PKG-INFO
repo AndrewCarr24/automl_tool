@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: automl_tool
+Version: 0.1.0
+Summary: Tool for performing auto ML.
+Author-email: "Andrew J. Carr" <andrewcarr24@github.com>
+License: MIT License
+Project-URL: Homepage, https://github.com/andrewcarr24/automl_tool
+Keywords: autoML,machine learning,data science
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: <3.12,>=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: pandas>=1.0
+Requires-Dist: numpy>=1.18
+Requires-Dist: scikit-learn<=1.5.1,>=0.24
+Requires-Dist: shap>=0.39
+Requires-Dist: seaborn>=0.11
+Requires-Dist: matplotlib>=3.3
+Requires-Dist: xgboost>=1.3
+Requires-Dist: opinionated
+Requires-Dist: ipywidgets
+
+### AutoML
+
+This is a Python package with code for performing AutoML and generating plots for evaluating the best fitting model. Tutorials coming soon... 
