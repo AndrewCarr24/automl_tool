@@ -70,12 +70,12 @@ class AutoML:
             if self.y.value_counts().shape[0] != 2:
                 raise ValueError('Target variable must be binary for binary classification. Multiclass modeling is currently not supported.')
             self.boosting_model = XGBWithEarlyStoppingClassifier()
-            self.elastic_net_model = SGDClassifier(loss='log_loss', penalty='elasticnet')
+            self.elastic_net_model = SGDClassifier(loss='log_loss', penalty='elasticnet', random_state=42)
             self.scoring_func = log_loss
             self.response_method = 'predict_proba'
         elif self.y.dtype == float:
             self.boosting_model = XGBWithEarlyStoppingRegressor()
-            self.elastic_net_model = SGDRegressor(loss='squared_error', penalty='elasticnet')
+            self.elastic_net_model = SGDRegressor(loss='squared_error', penalty='elasticnet', random_state=42)
             self.scoring_func = mean_absolute_error
             self.response_method = 'predict'
 
