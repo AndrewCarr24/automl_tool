@@ -36,7 +36,7 @@ dependencies = [
 Homepage = "https://github.com/andrewcarr24/automl_tool"
 
 [tool.setuptools.package-data]
-automl_tool = ["automl_tool/assets/logo_placeholder.png", "automl_tool/styles/opinionated_rc.mplstyle"]
+automl_tool = ["src/automl_tool/assets/logo_placeholder.png", "src/automl_tool/styles/opinionated_rc.mplstyle"]
 
 [tool.pytest.ini_options]
 filterwarnings = [

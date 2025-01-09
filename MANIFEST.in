@@ -1,2 +1,2 @@
-include automl_tool/assets/logo_placeholder.png
-include automl_tool/styles/opinionated_rc.mplstyle
+include src/automl_tool/assets/logo_placeholder.png
+include src/automl_tool/styles/opinionated_rc.mplstyle
