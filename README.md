@@ -1,32 +1,15 @@
----
-toc-title: Table of contents
----
-
-<figure>
-<a
-href="https://github.com/AndrewCarr24/automl_tool/actions/workflows/ci.yml"><img
-src="https://github.com/AndrewCarr24/automl_tool/actions/workflows/ci.yml/badge.svg"
-alt="CI" /></a>
-<figcaption>CI</figcaption>
-</figure>
+[![CI](https://github.com/AndrewCarr24/automl_tool/actions/workflows/ci.yml/badge.svg)](https://github.com/AndrewCarr24/automl_tool/actions/workflows/ci.yml)
 
 ### AutoML
 
-This package provides tools for automating the process of machine
-learning model selection and hyperparameter tuning. These are tools I
-use when starting a new project. The `AutoML` class included in the
-package has methods to select a strong baseline model and produce
-feature importance and feature effects plots for model interpretation.
+This package provides tools for automating the process of machine learning model selection and hyperparameter tuning. These are tools I use when starting a new project. The `AutoML` class included in the package has methods to select a strong baseline model and produce feature importance and feature effects plots for model interpretation.
 
-### Using the package
+### Using the package 
 
-Almost everything in this package can be accessed from the main class,
-`AutoML`. Start by initializing an instance of the class and using the
-`fit_pipeline` method to train and select a best estimator. I
-demonstrate this here with a toy dataset when scikit-learn.
+Almost everything in this package can be accessed from the main class, `AutoML`. Start by initializing an instance of the class and using the `fit_pipeline` method to train and select a best estimator. I demonstrate this here with a toy dataset when scikit-learn.
 
-::: {.cell execution_count="2"}
-``` {.python .cell-code}
+
+```python
 from automl_tool.automl import AutoML
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
@@ -43,20 +26,19 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 # Initialize and fit the AutoML estimator
 automl = AutoML(X_train, y_train, "target")
 automl.fit_pipeline()
+
 ```
-:::
 
-Running the `fit_pipeline` method fits a `GridSearchCV` metaestimator,
-which uses a `Pipeline` to fit several models with different
-hyperparameters. After running the method, the selected model is stored
-as the `fitted_pipeline` attribute.
+Running the `fit_pipeline` method fits a `GridSearchCV` metaestimator, which uses a `Pipeline` to fit several models with different hyperparameters. After running the method, the selected model is stored as the `fitted_pipeline` attribute. 
 
-:::: {.cell execution_count="3"}
-``` {.python .cell-code}
+
+```python
 automl.fitted_pipeline
 ```
 
-::: {.cell-output .cell-output-display execution_count="3"}
+
+
+
 <style>#sk-container-id-1 {
   /* Definition of color scheme common for light and dark mode */
   --sklearn-color-text: black;
@@ -552,5 +534,5 @@ div.sk-label-container:hover .sk-estimator-doc-link.fitted:hover,
        &#x27;worst concave points&#x27;, &#x27;worst symmetry&#x27;, &#x27;worst fractal dimension&#x27;],
       dtype=&#x27;object&#x27;)</pre></div> </div></div><div class="sk-serial"><div class="sk-item"><div class="sk-serial"><div class="sk-item"><div class="sk-estimator fitted sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-5" type="checkbox" ><label for="sk-estimator-id-5" class="sk-toggleable__label fitted sk-toggleable__label-arrow fitted">&nbsp;SimpleImputer<a class="sk-estimator-doc-link fitted" rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.5/modules/generated/sklearn.impute.SimpleImputer.html">?<span>Documentation for SimpleImputer</span></a></label><div class="sk-toggleable__content fitted"><pre>SimpleImputer(strategy=&#x27;median&#x27;)</pre></div> </div></div><div class="sk-item"><div class="sk-estimator fitted sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-6" type="checkbox" ><label for="sk-estimator-id-6" class="sk-toggleable__label fitted sk-toggleable__label-arrow fitted">&nbsp;StandardScaler<a class="sk-estimator-doc-link fitted" rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.5/modules/generated/sklearn.preprocessing.StandardScaler.html">?<span>Documentation for StandardScaler</span></a></label><div class="sk-toggleable__content fitted"><pre>StandardScaler()</pre></div> </div></div></div></div></div></div></div><div class="sk-parallel-item"><div class="sk-item"><div class="sk-label-container"><div class="sk-label fitted sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-7" type="checkbox" ><label for="sk-estimator-id-7" class="sk-toggleable__label fitted sk-toggleable__label-arrow fitted">cat</label><div class="sk-toggleable__content fitted"><pre>Index([], dtype=&#x27;object&#x27;)</pre></div> </div></div><div class="sk-serial"><div class="sk-item"><div class="sk-serial"><div class="sk-item"><div class="sk-estimator fitted sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-8" type="checkbox" ><label for="sk-estimator-id-8" class="sk-toggleable__label fitted sk-toggleable__label-arrow fitted">&nbsp;SimpleImputer<a class="sk-estimator-doc-link fitted" rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.5/modules/generated/sklearn.impute.SimpleImputer.html">?<span>Documentation for SimpleImputer</span></a></label><div class="sk-toggleable__content fitted"><pre>SimpleImputer(fill_value=&#x27;missing&#x27;, strategy=&#x27;constant&#x27;)</pre></div> </div></div><div class="sk-item"><div class="sk-estimator fitted sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-9" type="checkbox" ><label for="sk-estimator-id-9" class="sk-toggleable__label fitted sk-toggleable__label-arrow fitted">&nbsp;OneHotEncoder<a class="sk-estimator-doc-link fitted" rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.5/modules/generated/sklearn.preprocessing.OneHotEncoder.html">?<span>Documentation for OneHotEncoder</span></a></label><div class="sk-toggleable__content fitted"><pre>OneHotEncoder(handle_unknown=&#x27;ignore&#x27;)</pre></div> </div></div></div></div></div></div></div></div></div><div class="sk-item"><div class="sk-estimator fitted sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-10" type="checkbox" ><label for="sk-estimator-id-10" class="sk-toggleable__label fitted sk-toggleable__label-arrow fitted">&nbsp;SGDClassifier<a class="sk-estimator-doc-link fitted" rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.5/modules/generated/sklearn.linear_model.SGDClassifier.html">?<span>Documentation for SGDClassifier</span></a></label><div class="sk-toggleable__content fitted"><pre>SGDClassifier(alpha=0.005, l1_ratio=0, loss=&#x27;log_loss&#x27;, max_iter=3000,
               penalty=&#x27;elasticnet&#x27;, random_state=42)</pre></div> </div></div></div></div></div></div></div></div></div></div></div>
-:::
-::::
+
+
