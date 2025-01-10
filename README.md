@@ -49,7 +49,7 @@ automl.feature_importance_plot
 
 
     
-![png](testing_notebooks/README_files/README_5_0.png)
+![](img/README_5_0.png)
     
 
 
@@ -107,7 +107,7 @@ automl.partial_dependence_plots["mean radius"]
 
 
     
-![](testing_notebooks/README_files/README_8_0.png)
+![](img/README_8_0.png)
     
 
 
