@@ -1,6 +1,6 @@
 [![CI](https://github.com/AndrewCarr24/automl_tool/actions/workflows/ci.yml/badge.svg)](https://github.com/AndrewCarr24/automl_tool/actions/workflows/ci.yml)
 
-### AutoML
+# AutoML
 
 This package provides tools for automating the process of machine learning model selection and hyperparameter tuning. These are tools I use when starting a new project. The `AutoML` class included in the package has methods to select a strong baseline model and produce feature importance and feature effects plots for model interpretation.
 
