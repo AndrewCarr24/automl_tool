@@ -20,7 +20,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.11'
+        python-version: '3.12'
 
     - name: Install dependencies
       run: |
@@ -29,4 +29,4 @@ jobs:
         
     - name: Run tests
       run: |
-        pytest -v tests/integration/test.py
+        pytest -v tests/integration/test_integration.py
