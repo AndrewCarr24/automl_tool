@@ -6,14 +6,22 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import CountVectorizer
 import numpy as np
+from typing import Tuple
 
-def ts_train_test_split(X: pd.DataFrame, y: pd.Series, outcome_col: str, date_col: str, fdw: int, holdout_window: int):
+def ts_train_test_split(
+    X: pd.DataFrame, 
+    y: pd.Series, 
+    outcome_col: str, 
+    date_col: str, 
+    fdw: int, 
+    holdout_window: int
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
     Apply preprocessing and split the data into training and testing sets for time series modeling.
     """
 
     # Helper function to preprocess ts data
-    def _ts_preproc(inp_tbl, inp_y):   
+    def _ts_preproc(inp_tbl: pd.DataFrame, inp_y: pd.Series) -> Tuple[pd.DataFrame, pd.Series]:   
         preproc_tbl = (inp_tbl
         .pipe(lambda x: x.assign(**{f"lagged_{outcome_col}_{i}m": x[outcome_col].shift(i) for i in range(1, fdw + 1)}))
         .pipe(lambda x: x.assign(**{f"logged_lagged_{outcome_col}_{i}m": np.log1p(x[outcome_col].shift(i)) for i in range(1, fdw + 1)}))
@@ -59,10 +67,10 @@ class Prepreprocessor:
     """
     A class to dynamically build preprocessing pipelines for numeric, categorical, and text data.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def build_preprocessor(self, X: pd.DataFrame):
+    def build_preprocessor(self, X: pd.DataFrame) -> ColumnTransformer:
         """
         Builds a ColumnTransformer pipeline for preprocessing numeric, categorical, and text columns.
 

@@ -10,6 +10,7 @@ from sklearn.metrics import make_scorer, log_loss, mean_absolute_error
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.model_selection import TimeSeriesSplit
 import warnings
+from typing import Optional
 # Suppress worker stopping warnings
 warnings.filterwarnings("ignore", message="A worker stopped while some jobs were given to the executor")
 warnings.filterwarnings("ignore", message="invalid value encountered in cast")
@@ -53,7 +54,8 @@ class AutoML:
     get_backtest_plots(self):
         Generates backtest plots for the fitted pipeline (only works for time series).
     """
-    def __init__(self, X: pd.DataFrame, y: pd.Series, outcome: str, time_series: bool = False):
+    
+    def __init__(self, X: pd.DataFrame, y: pd.Series, outcome: str, time_series: bool = False) -> None:
         self.X = X
         self.y = y
         self.target = outcome
@@ -79,7 +81,7 @@ class AutoML:
             self.scoring_func = mean_absolute_error
             self.response_method = 'predict'
 
-    def fit_pipeline(self, holdout_window: int = None):
+    def fit_pipeline(self, holdout_window: Optional[int] = None) -> None:
         """
         Fit the pipeline with cross-validation and grid search.
 
@@ -133,7 +135,12 @@ class AutoML:
         grid_tmp = GridSearchCV(tmp_pipeline, parameters, cv=cv_obj, n_jobs=-1, verbose=0, scoring=scoring)
         self.fitted_pipeline = grid_tmp.fit(self.X, self.y)
 
-    def get_feature_importance_scores(self, X_pred: pd.DataFrame = None, y_pred: pd.Series = None, type: str = 'shap'):
+    def get_feature_importance_scores(
+        self, 
+        X_pred: Optional[pd.DataFrame] = None, 
+        y_pred: Optional[pd.Series] = None, 
+        type: str = 'shap'
+    ) -> None:
         """
         Calculate and store feature importance scores for the fitted pipeline.
 
@@ -158,7 +165,7 @@ class AutoML:
         self.feature_importance_scores = importance_df
         self.feature_importance_type = type
 
-    def plot_feature_importance_scores(self, logo: bool = False, top_k: int = None):
+    def plot_feature_importance_scores(self, logo: bool = False, top_k: Optional[int] = None) -> None:
         """
         Generate and store a plot of the feature importance scores.
 
@@ -172,7 +179,7 @@ class AutoML:
         tmp_plt = PlotTools().plot_feature_importance(self.feature_importance_scores, logo, top_k)
         self.feature_importance_plot = tmp_plt
 
-    def get_partial_dependence_plots(self, logo: bool = False):
+    def get_partial_dependence_plots(self, logo: bool = False) -> None:
         """
         Generate partial dependence plots for the fitted pipeline.
 
@@ -185,7 +192,7 @@ class AutoML:
         tmp_plts = PlotTools().get_pdp(self.fitted_pipeline, self.X, logo, self.target)
         self.partial_dependence_plots = tmp_plts
 
-    def get_backtest_plots(self):
+    def get_backtest_plots(self) -> None:
         """
         Generate backtest plots for the fitted pipeline.
 

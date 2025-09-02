@@ -13,12 +13,14 @@ from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.utils import Bunch
 import os 
 from sklearn.model_selection import TimeSeriesSplit
+from typing import Dict, Optional, Union, Any, Type, Tuple, List
+import matplotlib.figure
 
 class PlotTools:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def get_shap_values(self, fitted_pipeline: Pipeline, X: pd.DataFrame, y: pd.Series):
+    def get_shap_values(self, fitted_pipeline: Pipeline, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
         """
         Calculate SHAP values for the fitted pipeline and return a DataFrame of feature importance scores.
 
@@ -57,10 +59,10 @@ class PlotTools:
         
         return feature_imp_tbl        
 
-    def _build_feature_mapping(self, inp_preprocessor: Prepreprocessor, inp_X: pd.DataFrame):
+    def _build_feature_mapping(self, inp_preprocessor: Type[Prepreprocessor], inp_X: pd.DataFrame) -> pd.DataFrame:
     
         # Helper - takes preprocessor object and column name, returns feature names for mapping 
-        def _build_fm_on_col(inp_col_name: str):
+        def _build_fm_on_col(inp_col_name: str) -> Dict[str, str]:
             preprocessor = inp_preprocessor().build_preprocessor(inp_X[[inp_col_name]])
             new_feature_len = preprocessor.fit_transform(inp_X[[inp_col_name]]).shape[1]
             return {k:v for k,v in zip(preprocessor.get_feature_names_out(), np.repeat(inp_col_name, new_feature_len))}
@@ -79,7 +81,7 @@ class PlotTools:
         
         return feature_mapping_tbl    
     
-    def get_permutation_importance(self, fitted_pipeline: Pipeline, X: pd.DataFrame, y: pd.Series):
+    def get_permutation_importance(self, fitted_pipeline: Pipeline, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
         
         if isinstance(fitted_pipeline.best_estimator_['model'], XGBWithEarlyStoppingClassifier) | isinstance(fitted_pipeline.best_estimator_['model'], SGDClassifier):
             perm_scorer = 'neg_log_loss'
@@ -103,7 +105,12 @@ class PlotTools:
 
         return feature_imp_tbl
     
-    def plot_feature_importance(self, feature_importance_scores: pd.DataFrame, logo: bool = False, top_k: int = None):
+    def plot_feature_importance(
+        self, 
+        feature_importance_scores: pd.DataFrame, 
+        logo: bool = False, 
+        top_k: Optional[int] = None
+    ) -> matplotlib.figure.Figure:
 
         # Filter to top k features if top_k specified
         if top_k:
@@ -162,7 +169,13 @@ class PlotTools:
 
         return fig
     
-    def get_pdp(self, fitted_pipeline: Pipeline, X: pd.DataFrame, logo: bool = False, target: str = None):
+    def get_pdp(
+        self, 
+        fitted_pipeline: Pipeline, 
+        X: pd.DataFrame, 
+        logo: bool = False, 
+        target: Optional[str] = None
+    ) -> Dict[str, matplotlib.figure.Figure]:
         """
         Generate Partial Dependence Plots (PDPs) for each feature in `X` using the fitted model pipeline and
         return a dictionary of matplotlib figures for each feature.
@@ -192,7 +205,7 @@ class PlotTools:
         """
 
         # Transform many-category variable
-        def _transform_cat_var(df, column_name):
+        def _transform_cat_var(df: pd.DataFrame, column_name: str) -> pd.DataFrame:
             # Get the most common values
             top_n = df[column_name].value_counts().nlargest(14).index
             # Replace values not in the top nlargest with 'Other'
@@ -204,13 +217,13 @@ class PlotTools:
             return df
         
         # Shorten string for x axis tick labels
-        def _shorten_string(s):
+        def _shorten_string(s: str) -> str:
             if len(s) > 17:
                 return f"{s[:8]}...{s[-8:]}"
             return s
         
         # Get plot parms for pdp
-        def _get_pdp_vals(pdp_object: Bunch):
+        def _get_pdp_vals(pdp_object: Bunch) -> Tuple[Union[List[str], np.ndarray], float, int, str]:
             # Shorten string and put ellipsis in middle for x axis tick labels, scale plot len based on number of ticks
             if pdp_object['grid_values'][0].dtype == 'O':
                 grid_vals = [_shorten_string(i) for i in pdp_object['grid_values'][0]]
@@ -229,7 +242,14 @@ class PlotTools:
             return grid_vals, plt_len, rotation_val, xtick_label_loc
 
         # Plot pdp  
-        def _plot_pdp(pdp_output, grid_vals, plt_len, rotation_val, xtick_label_loc, logo):
+        def _plot_pdp(
+            pdp_output: Bunch, 
+            grid_vals: Union[list, np.ndarray], 
+            plt_len: float, 
+            rotation_val: int, 
+            xtick_label_loc: str, 
+            logo: bool
+        ) -> matplotlib.figure.Figure:
                 
             fig, ax = plt.subplots(figsize=(plt_len, 4.5))
 
@@ -280,7 +300,13 @@ class PlotTools:
 
         return pdp_plots
     
-    def get_bt_plts(self, fitted_pipeline, X_train, y_train, inp_holdout_window):
+    def get_bt_plts(
+        self, 
+        fitted_pipeline: Pipeline, 
+        X_train: pd.DataFrame, 
+        y_train: pd.Series, 
+        inp_holdout_window: int
+    ) -> Dict[str, matplotlib.figure.Figure]:
         """
         Generate backtest plots for time series model.
         """    
