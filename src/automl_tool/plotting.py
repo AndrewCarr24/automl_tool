@@ -92,13 +92,20 @@ class PlotTools:
             # OneHotEncoder expands columns
             if isinstance(final_step, OneHotEncoder):
                 ohe_cols = cols if isinstance(cols, list) else list(cols)
-                # Use categories to reconstruct feature names without refitting
-                for orig_col, categories in zip(ohe_cols, final_step.categories):
-                    for cat in categories:
-                        exp_feature = f"{orig_col}_{cat}"
-                        prefixed_feature = f"{name}__{exp_feature}"
-                        if prefixed_feature in transformed_names:
-                            original_map[prefixed_feature] = orig_col
+                # Skip if no columns to encode
+                if len(ohe_cols) == 0:
+                    continue
+                # Use get_feature_names_out to get the expanded feature names
+                expanded_features = final_step.get_feature_names_out(ohe_cols)
+                for exp_feature in expanded_features:
+                    prefixed_feature = f"{name}__{exp_feature}"
+                    if prefixed_feature in transformed_names:
+                        # Extract original column name from expanded feature
+                        # Format is typically "original_col_category"
+                        for orig_col in ohe_cols:
+                            if exp_feature.startswith(f"{orig_col}_"):
+                                original_map[prefixed_feature] = orig_col
+                                break
             
             # CountVectorizer for text columns  
             elif isinstance(final_step, CountVectorizer):
