@@ -91,6 +91,14 @@ class AutoML:
         Returns:
         None: The method sets the fitted_pipeline attribute with the fitted pipeline.
         """
+        # Validate that target variable has no missing values
+        if self.y.isnull().any():
+            missing_count = self.y.isnull().sum()
+            total_count = len(self.y)
+            raise ValueError(
+                f"""Target variable '{self.target}' contains {missing_count} missing values out of {total_count} total observations. AutoML is build on top of scikit-learn, which requires complete target data for training. Please remove or impute missing target values."""
+            )
+        
         # Define the cross-validation object based on whether time series or not
         if self.time_series:
             if holdout_window is None:
