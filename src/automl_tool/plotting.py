@@ -1,5 +1,8 @@
 
 from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.feature_extraction.text import CountVectorizer
 import pandas as pd 
 from .preprocessing import Prepreprocessor
 import shap
@@ -47,7 +50,7 @@ class PlotTools:
 
         feature_imp_tbl = (pd.DataFrame({'transformed_feature': fitted_pipeline.best_estimator_['preprocessor'].get_feature_names_out(),
                                          'sv_contrib': np.abs(shap_values.values).mean(0)})
-                                         .merge(self._build_feature_mapping(inp_preprocessor = Prepreprocessor, inp_X = X), on='transformed_feature', how='left')
+                                         .merge(self._build_feature_mapping(fitted_pipeline.best_estimator_['preprocessor']), on='transformed_feature', how='left')
                                          .groupby('original_column')
                                          .agg({'sv_contrib': 'sum'})
                                          .sort_values('sv_contrib', ascending = False)
@@ -59,25 +62,67 @@ class PlotTools:
         
         return feature_imp_tbl        
 
-    def _build_feature_mapping(self, inp_preprocessor: Type[Prepreprocessor], inp_X: pd.DataFrame) -> pd.DataFrame:
-    
-        # Helper - takes preprocessor object and column name, returns feature names for mapping 
-        def _build_fm_on_col(inp_col_name: str) -> Dict[str, str]:
-            preprocessor = inp_preprocessor().build_preprocessor(inp_X[[inp_col_name]])
-            new_feature_len = preprocessor.fit_transform(inp_X[[inp_col_name]]).shape[1]
-            return {k:v for k,v in zip(preprocessor.get_feature_names_out(), np.repeat(inp_col_name, new_feature_len))}
-    
-        # Create a list of dictionaries for each column of the input DataFrame
-        dict_lst = [_build_fm_on_col(col) for col in inp_X.columns]
-    
-        # Concatenate the list of dictionaries into a single dictionary
-        feature_mapping = {k: v for d in dict_lst for k, v in d.items()}
-    
-        # Convert the dictionary to a DataFrame
-        feature_mapping_tbl = (pd.DataFrame.from_dict(feature_mapping, orient='index', columns=['original_column'])
-                               .reset_index()
-                               .rename(columns = {'index': 'transformed_feature'})
-                               )
+    def _build_feature_mapping(self, fitted_preprocessor: ColumnTransformer) -> pd.DataFrame:
+        """Build mapping between transformed feature names and original columns using fitted ColumnTransformer.
+        
+        Avoids refitting per column (performance) and stays consistent with the actually fitted transformer.
+        
+        Parameters:
+        fitted_preprocessor (ColumnTransformer): The fitted preprocessor from the pipeline.
+        
+        Returns:
+        pd.DataFrame: Mapping table with 'transformed_feature' and 'original_column' columns.
+        """
+        if not hasattr(fitted_preprocessor, 'transformers_'):
+            raise ValueError("Preprocessor must be fitted before building feature mapping.")
+        
+        transformed_names = list(fitted_preprocessor.get_feature_names_out())
+        original_map: Dict[str, str] = {}
+        
+        for name, transformer, cols in fitted_preprocessor.transformers_:
+            if transformer == 'drop' or transformer is None:
+                continue
+                
+            # Handle pipeline objects
+            if hasattr(transformer, 'named_steps'):
+                final_step = list(transformer.named_steps.values())[-1]
+            else:
+                final_step = transformer
+            
+            # OneHotEncoder expands columns
+            if isinstance(final_step, OneHotEncoder):
+                ohe_cols = cols if isinstance(cols, list) else list(cols)
+                # Use categories to reconstruct feature names without refitting
+                for orig_col, categories in zip(ohe_cols, final_step.categories):
+                    for cat in categories:
+                        exp_feature = f"{orig_col}_{cat}"
+                        prefixed_feature = f"{name}__{exp_feature}"
+                        if prefixed_feature in transformed_names:
+                            original_map[prefixed_feature] = orig_col
+            
+            # CountVectorizer for text columns  
+            elif isinstance(final_step, CountVectorizer):
+                vocab_features = final_step.get_feature_names_out()
+                base_col = cols if isinstance(cols, str) else cols[0]
+                for vf in vocab_features:
+                    prefixed_feature = f"{name}__{vf}"
+                    if prefixed_feature in transformed_names:
+                        original_map[prefixed_feature] = base_col
+            
+            # Numeric features (scaler/imputer) - one-to-one mapping
+            else:
+                base_cols = cols if isinstance(cols, list) else list(cols)
+                for c in base_cols:
+                    prefixed_feature = f"{name}__{c}"
+                    if prefixed_feature in transformed_names:
+                        original_map[prefixed_feature] = c
+        
+        feature_mapping_tbl = (pd.DataFrame({
+            'transformed_feature': list(original_map.keys()),
+            'original_column': list(original_map.values())
+        })
+        .sort_values('transformed_feature')
+        .reset_index(drop=True))
         
         return feature_mapping_tbl    
     

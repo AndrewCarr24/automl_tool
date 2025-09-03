@@ -111,6 +111,11 @@ class Prepreprocessor:
                 ('cat', categorical_transformer, categorical_cols),
                 *[('text', text_transformer, text_col) for text_col in text_cols]
             ])
+
+        # Store column metadata for efficient feature mapping without refitting
+        preprocessor._numeric_cols = list(numeric_cols)
+        preprocessor._categorical_cols = list(categorical_cols)
+        preprocessor._text_cols = list(text_cols)
         
         return preprocessor
     
