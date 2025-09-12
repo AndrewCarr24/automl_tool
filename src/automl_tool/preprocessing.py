@@ -25,7 +25,7 @@ def ts_train_test_split(
     def _ts_preproc(inp_tbl: pd.DataFrame, inp_y: pd.Series) -> Tuple[pd.DataFrame, pd.Series]:   
         preproc_tbl = (inp_tbl
         .pipe(lambda x: x.assign(**{f"lagged_{outcome_col}_{i}m": x[outcome_col].shift(i) for i in range(forecast_window, fdw + 1)}))
-        .pipe(lambda x: x.assign(**{f"logged_lagged_{outcome_col}_{i}m": np.log1p(x[outcome_col].shift(i)) for i in range(forecast_window, fdw + 1)}))
+        .pipe(lambda x: x.assign(**{f"inv_hyp_sin_lagged_{outcome_col}_{i}m": np.arcsinh(x[outcome_col].shift(i)) for i in range(forecast_window, fdw + 1)}))
         .pipe(lambda x: x.assign(**{f"rolling_avg_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).mean() for i in range(forecast_window, fdw + 1)}))
         .pipe(lambda x: x.assign(**{f"min_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).min() for i in range(forecast_window, fdw + 1)}))
         # Drop the original date and outcome columns
