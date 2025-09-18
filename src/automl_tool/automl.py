@@ -8,9 +8,14 @@ from .estimation import XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegr
 from .plotting import PlotTools
 from sklearn.metrics import make_scorer, log_loss, mean_absolute_error
 from sklearn.linear_model import SGDClassifier, SGDRegressor
+from sklearn.linear_model import ElasticNet
 from sklearn.model_selection import TimeSeriesSplit
 import warnings
 from typing import Optional
+
+from sklearn.exceptions import ConvergenceWarning
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
 # Suppress worker stopping warnings
 warnings.filterwarnings("ignore", message="A worker stopped while some jobs were given to the executor")
 warnings.filterwarnings("ignore", message="invalid value encountered in cast")
@@ -78,6 +83,9 @@ class AutoML:
         elif self.y.dtype == float:
             self.boosting_model = XGBWithEarlyStoppingRegressor()
             self.elastic_net_model = SGDRegressor(loss='squared_error', penalty='elasticnet', random_state=42)
+            
+            self.elastic_net_model2 = ElasticNet(random_state=42)
+
             self.scoring_func = mean_absolute_error
             self.response_method = 'predict'
 
@@ -132,8 +140,14 @@ class AutoML:
             },
             {
                 'model': [self.elastic_net_model],
-                'model__l1_ratio': [0, .05, .1, .5, .8, 1],
-                'model__alpha': [.1, .01, .005, .001, .00001, 5e-6],
+                'model__l1_ratio': [0, .05, .1, .3, .5, .6, .8, .9, 1],
+                'model__alpha': [2, 1, .5, .1, .01, .005, .001, .00001, 5e-6],
+                'model__max_iter': [3000],
+            },
+            {
+                'model': [self.elastic_net_model2],
+                'model__l1_ratio': [0, .05, .1, .3, .5, .6, .8, .9, 1],
+                'model__alpha': [2, 1, .5, .1, .01, .005, .001, .00001, 5e-6],
                 'model__max_iter': [3000],
             }
             ]
@@ -141,6 +155,7 @@ class AutoML:
         # Perform grid search with cross-validation
         scoring = make_scorer(self.scoring_func, greater_is_better=False, response_method=self.response_method)
         grid_tmp = GridSearchCV(tmp_pipeline, parameters, cv=cv_obj, n_jobs=-1, verbose=0, scoring=scoring)
+        
         self.fitted_pipeline = grid_tmp.fit(self.X, self.y)
 
     def get_feature_importance_scores(
