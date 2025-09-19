@@ -28,6 +28,12 @@ def ts_train_test_split(
         .pipe(lambda x: x.assign(**{f"inv_hyp_sin_lagged_{outcome_col}_{i}m": np.arcsinh(x[outcome_col].shift(i)) for i in range(forecast_window, fdw + 1)}))
         .pipe(lambda x: x.assign(**{f"rolling_avg_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).mean() for i in range(forecast_window, fdw + 1)}))
         .pipe(lambda x: x.assign(**{f"min_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).min() for i in range(forecast_window, fdw + 1)}))
+        # New time and seasonal features
+        .pipe(lambda x: x.assign(
+            # t=np.arange(len(x)),
+            monthsin=np.sin(2 * np.pi * pd.to_datetime(x[date_col]).dt.month / 12.0),
+            monthcos=np.cos(2 * np.pi * pd.to_datetime(x[date_col]).dt.month / 12.0),
+        ))
         # Drop the original date and outcome columns
         .drop([date_col, outcome_col], axis=1)
         # Rowwise deletion of missing values
