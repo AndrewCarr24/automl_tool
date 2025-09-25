@@ -29,4 +29,4 @@ jobs:
         
     - name: Run tests
       run: |
-        pytest -v tests/integration/test_integration.py
+        pytest -v tests/integration/test_integration.py tests/integration/test_integration_additional.py
