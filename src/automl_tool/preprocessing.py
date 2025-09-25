@@ -6,7 +6,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import CountVectorizer
 import numpy as np
-from typing import Tuple
+from typing import Optional, Tuple
 
 def ts_train_test_split(
     X: pd.DataFrame, 
@@ -14,7 +14,8 @@ def ts_train_test_split(
     outcome_col: str, 
     date_col: str, 
     fdw: int, 
-    holdout_window: int
+    holdout_window: int,
+    forecast_window: Optional[int] = 1 
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
     Apply preprocessing and split the data into training and testing sets for time series modeling.
@@ -23,10 +24,16 @@ def ts_train_test_split(
     # Helper function to preprocess ts data
     def _ts_preproc(inp_tbl: pd.DataFrame, inp_y: pd.Series) -> Tuple[pd.DataFrame, pd.Series]:   
         preproc_tbl = (inp_tbl
-        .pipe(lambda x: x.assign(**{f"lagged_{outcome_col}_{i}m": x[outcome_col].shift(i) for i in range(1, fdw + 1)}))
-        .pipe(lambda x: x.assign(**{f"logged_lagged_{outcome_col}_{i}m": np.log1p(x[outcome_col].shift(i)) for i in range(1, fdw + 1)}))
-        .pipe(lambda x: x.assign(**{f"rolling_avg_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).mean() for i in range(1, fdw + 1)}))
-        .pipe(lambda x: x.assign(**{f"min_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).min() for i in range(1, fdw + 1)}))
+        .pipe(lambda x: x.assign(**{f"lagged_{outcome_col}_{i}m": x[outcome_col].shift(i) for i in range(forecast_window, fdw + 1)}))
+        .pipe(lambda x: x.assign(**{f"inv_hyp_sin_lagged_{outcome_col}_{i}m": np.arcsinh(x[outcome_col].shift(i)) for i in range(forecast_window, fdw + 1)}))
+        .pipe(lambda x: x.assign(**{f"rolling_avg_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).mean() for i in range(forecast_window, fdw + 1)}))
+        .pipe(lambda x: x.assign(**{f"min_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).min() for i in range(forecast_window, fdw + 1)}))
+        # New time and seasonal features
+        .pipe(lambda x: x.assign(
+            # t=np.arange(len(x)),
+            monthsin=np.sin(2 * np.pi * pd.to_datetime(x[date_col]).dt.month / 12.0),
+            monthcos=np.cos(2 * np.pi * pd.to_datetime(x[date_col]).dt.month / 12.0),
+        ))
         # Drop the original date and outcome columns
         .drop([date_col, outcome_col], axis=1)
         # Rowwise deletion of missing values
@@ -111,6 +118,11 @@ class Prepreprocessor:
                 ('cat', categorical_transformer, categorical_cols),
                 *[('text', text_transformer, text_col) for text_col in text_cols]
             ])
+
+        # Store column metadata for efficient feature mapping without refitting
+        preprocessor._numeric_cols = list(numeric_cols)
+        preprocessor._categorical_cols = list(categorical_cols)
+        preprocessor._text_cols = list(text_cols)
         
         return preprocessor
     

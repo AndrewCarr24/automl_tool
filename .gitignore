@@ -3,5 +3,5 @@ __pycache__/
 __pycache__
 testing_notebooks
 *.egg-info/
-test_nb.ipynb
 .vscode/
+build/

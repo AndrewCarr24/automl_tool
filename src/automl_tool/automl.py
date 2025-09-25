@@ -8,9 +8,14 @@ from .estimation import XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegr
 from .plotting import PlotTools
 from sklearn.metrics import make_scorer, log_loss, mean_absolute_error
 from sklearn.linear_model import SGDClassifier, SGDRegressor
+from sklearn.linear_model import ElasticNet
 from sklearn.model_selection import TimeSeriesSplit
 import warnings
 from typing import Optional
+
+from sklearn.exceptions import ConvergenceWarning
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
 # Suppress worker stopping warnings
 warnings.filterwarnings("ignore", message="A worker stopped while some jobs were given to the executor")
 warnings.filterwarnings("ignore", message="invalid value encountered in cast")
@@ -72,12 +77,14 @@ class AutoML:
             if self.y.value_counts().shape[0] != 2:
                 raise ValueError('Target variable must be binary for binary classification. Multiclass modeling is currently not supported.')
             self.boosting_model = XGBWithEarlyStoppingClassifier()
-            self.elastic_net_model = SGDClassifier(loss='log_loss', penalty='elasticnet', random_state=42)
+            self.elastic_net_model_sgd = SGDClassifier(loss='log_loss', penalty='elasticnet', random_state=42)
             self.scoring_func = log_loss
             self.response_method = 'predict_proba'
         elif self.y.dtype == float:
             self.boosting_model = XGBWithEarlyStoppingRegressor()
-            self.elastic_net_model = SGDRegressor(loss='squared_error', penalty='elasticnet', random_state=42)
+            self.elastic_net_model_sgd = SGDRegressor(loss='squared_error', penalty='elasticnet', random_state=42)
+            self.elastic_net_model_coord_desc = ElasticNet(random_state=42)
+
             self.scoring_func = mean_absolute_error
             self.response_method = 'predict'
 
@@ -91,6 +98,14 @@ class AutoML:
         Returns:
         None: The method sets the fitted_pipeline attribute with the fitted pipeline.
         """
+        # Validate that target variable has no missing values
+        if self.y.isnull().any():
+            missing_count = self.y.isnull().sum()
+            total_count = len(self.y)
+            raise ValueError(
+                f"""Target variable '{self.target}' contains {missing_count} missing values out of {total_count} total observations. AutoML is built on top of scikit-learn, which requires complete target data for training. Please remove or impute missing target values."""
+            )
+        
         # Define the cross-validation object based on whether time series or not
         if self.time_series:
             if holdout_window is None:
@@ -123,16 +138,26 @@ class AutoML:
                 'model__colsample_bytree': [0.3],
             },
             {
-                'model': [self.elastic_net_model],
-                'model__l1_ratio': [0, .05, .1, .5, .8, 1],
-                'model__alpha': [.1, .01, .005, .001, .00001, 5e-6],
+                'model': [self.elastic_net_model_sgd],
+                'model__l1_ratio': [0, .05, .1, .3, .5, .6, .8, .9, 1],
+                'model__alpha': [2, 1, .5, .1, .01, .005, .001, .00001, 5e-6],
                 'model__max_iter': [3000],
             }
             ]
+        
+        # Include enet coordinate descent model if regression problem
+        if self.y.dtype == float:
+            parameters.append({
+                'model': [self.elastic_net_model_coord_desc],
+                'model__l1_ratio': [0, .05, .1, .3, .5, .6, .8, .9, 1],
+                'model__alpha': [2, 1, .5, .1, .01, .005, .001, .00001, 5e-6],
+                'model__max_iter': [3000],
+            })
 
         # Perform grid search with cross-validation
         scoring = make_scorer(self.scoring_func, greater_is_better=False, response_method=self.response_method)
         grid_tmp = GridSearchCV(tmp_pipeline, parameters, cv=cv_obj, n_jobs=-1, verbose=0, scoring=scoring)
+        
         self.fitted_pipeline = grid_tmp.fit(self.X, self.y)
 
     def get_feature_importance_scores(
