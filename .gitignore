@@ -4,3 +4,4 @@ __pycache__
 testing_notebooks
 *.egg-info/
 .vscode/
+build/
