@@ -13,6 +13,7 @@ import seaborn as sns
 import matplotlib.image as mpimg
 from .estimation import XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegressor
 from sklearn.linear_model import SGDClassifier, SGDRegressor
+from sklearn.linear_model import ElasticNet
 from sklearn.utils import Bunch
 import os 
 from sklearn.model_selection import TimeSeriesSplit
@@ -37,9 +38,9 @@ class PlotTools:
         """
         # Get masker for shap Explainer function 
         X_transformed = fitted_pipeline.best_estimator_['preprocessor'].transform(X)
-        if isinstance(fitted_pipeline.best_estimator_['model'], XGBWithEarlyStoppingClassifier) | isinstance(fitted_pipeline.best_estimator_['model'], XGBWithEarlyStoppingRegressor):
+        if isinstance(fitted_pipeline.best_estimator_['model'], (XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegressor)):
             inp_masker = None
-        elif isinstance(fitted_pipeline.best_estimator_['model'], SGDClassifier) | isinstance(fitted_pipeline.best_estimator_['model'], SGDRegressor):
+        elif isinstance(fitted_pipeline.best_estimator_['model'], (SGDClassifier, SGDRegressor, ElasticNet)):
             inp_masker = X_transformed
 
         # Get shap values 
@@ -135,9 +136,9 @@ class PlotTools:
     
     def get_permutation_importance(self, fitted_pipeline: Pipeline, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
         
-        if isinstance(fitted_pipeline.best_estimator_['model'], XGBWithEarlyStoppingClassifier) | isinstance(fitted_pipeline.best_estimator_['model'], SGDClassifier):
+        if isinstance(fitted_pipeline.best_estimator_['model'], (XGBWithEarlyStoppingClassifier, SGDClassifier)):
             perm_scorer = 'neg_log_loss'
-        elif isinstance(fitted_pipeline.best_estimator_['model'], XGBWithEarlyStoppingRegressor) | isinstance(fitted_pipeline.best_estimator_['model'], SGDRegressor):
+        elif isinstance(fitted_pipeline.best_estimator_['model'], (XGBWithEarlyStoppingRegressor, SGDRegressor, ElasticNet)):
             perm_scorer = 'neg_mean_squared_error'
 
         # Compute permutation importance scores (takes a couple minutes or more depending on size of prediction dataset and n_repeats)
