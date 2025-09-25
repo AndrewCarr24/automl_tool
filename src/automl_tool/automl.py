@@ -77,14 +77,13 @@ class AutoML:
             if self.y.value_counts().shape[0] != 2:
                 raise ValueError('Target variable must be binary for binary classification. Multiclass modeling is currently not supported.')
             self.boosting_model = XGBWithEarlyStoppingClassifier()
-            self.elastic_net_model = SGDClassifier(loss='log_loss', penalty='elasticnet', random_state=42)
+            self.elastic_net_model_sgd = SGDClassifier(loss='log_loss', penalty='elasticnet', random_state=42)
             self.scoring_func = log_loss
             self.response_method = 'predict_proba'
         elif self.y.dtype == float:
             self.boosting_model = XGBWithEarlyStoppingRegressor()
-            self.elastic_net_model = SGDRegressor(loss='squared_error', penalty='elasticnet', random_state=42)
-            
-            self.elastic_net_model2 = ElasticNet(random_state=42)
+            self.elastic_net_model_sgd = SGDRegressor(loss='squared_error', penalty='elasticnet', random_state=42)
+            self.elastic_net_model_coord_desc = ElasticNet(random_state=42)
 
             self.scoring_func = mean_absolute_error
             self.response_method = 'predict'
@@ -139,18 +138,21 @@ class AutoML:
                 'model__colsample_bytree': [0.3],
             },
             {
-                'model': [self.elastic_net_model],
-                'model__l1_ratio': [0, .05, .1, .3, .5, .6, .8, .9, 1],
-                'model__alpha': [2, 1, .5, .1, .01, .005, .001, .00001, 5e-6],
-                'model__max_iter': [3000],
-            },
-            {
-                'model': [self.elastic_net_model2],
+                'model': [self.elastic_net_model_sgd],
                 'model__l1_ratio': [0, .05, .1, .3, .5, .6, .8, .9, 1],
                 'model__alpha': [2, 1, .5, .1, .01, .005, .001, .00001, 5e-6],
                 'model__max_iter': [3000],
             }
             ]
+        
+        # Include enet coordinate descent model if regression problem
+        if self.y.dtype == float:
+            parameters.append({
+                'model': [self.elastic_net_model_coord_desc],
+                'model__l1_ratio': [0, .05, .1, .3, .5, .6, .8, .9, 1],
+                'model__alpha': [2, 1, .5, .1, .01, .005, .001, .00001, 5e-6],
+                'model__max_iter': [3000],
+            })
 
         # Perform grid search with cross-validation
         scoring = make_scorer(self.scoring_func, greater_is_better=False, response_method=self.response_method)
