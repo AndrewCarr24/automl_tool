@@ -5,6 +5,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import GridSearchCV
 from .preprocessing import Prepreprocessor
 from .estimation import XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegressor
+from xgboost import XGBRegressor
 from .plotting import PlotTools
 from sklearn.metrics import make_scorer, log_loss, mean_absolute_error
 from sklearn.linear_model import SGDClassifier, SGDRegressor
@@ -12,6 +13,13 @@ from sklearn.linear_model import ElasticNet
 from sklearn.model_selection import TimeSeriesSplit
 import warnings
 from typing import Optional
+
+from sklearn.ensemble import StackingRegressor, RandomForestRegressor
+from sklearn.neighbors import KNeighborsRegressor
+
+from sklearn.experimental import enable_halving_search_cv
+from sklearn.model_selection import HalvingRandomSearchCV 
+from scipy.stats import uniform, loguniform, randint
 
 from sklearn.exceptions import ConvergenceWarning
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
@@ -22,7 +30,80 @@ warnings.filterwarnings("ignore", message="invalid value encountered in cast")
 # Suppress warnings about max iterations reached before convergence
 # warnings.filterwarnings("ignore", message="Maximum number of iteration reached before convergence. Consider increasing max_iter to improve the fit.")
 
+from sklearn.base import BaseEstimator, RegressorMixin
+from statsmodels.tsa.holtwinters import ExponentialSmoothing as _HWES
+ 
 
+class SimpleESRegressor(BaseEstimator, RegressorMixin):
+    """
+    Exponential Smoothing regressor that ignores any time index.
+    Treats y as an ordered sequence only. X is ignored except for length.
+    Provides fit, predict, and transform (returns in-sample fitted values).
+    """
+    def __init__(
+        self,
+        trend='add',            # 'add', 'mul', or None
+        damped_trend=False,
+        seasonal=None,          # 'add', 'mul', or None
+        seasonal_periods=None,  # int or None
+        use_boxcox=False,
+        initialization_method='estimated',
+        optimized=True
+    ):
+        self.trend = trend
+        self.damped_trend = damped_trend
+        self.seasonal = seasonal
+        self.seasonal_periods = seasonal_periods
+        self.use_boxcox = use_boxcox
+        self.initialization_method = initialization_method
+        self.optimized = optimized
+        self._res = None
+        self._y_len = None
+
+    def fit(self, X, y):
+        y_arr = np.asarray(y, dtype=float)
+        self._y_len = len(y_arr)
+        sp = self.seasonal_periods if self.seasonal is not None else None
+        # Guard: need at least 2*sp points for seasonal; else drop seasonality
+        if sp is not None and self._y_len < 2 * sp:
+            sp = None
+        try:
+            self._res = _HWES(
+                y_arr,
+                trend=self.trend,
+                damped_trend=(self.damped_trend if self.trend else False),
+                seasonal=self.seasonal if sp else None,
+                seasonal_periods=sp,
+                use_boxcox=self.use_boxcox,
+                initialization_method=self.initialization_method,
+            ).fit(optimized=self.optimized)
+        except Exception:
+            # Fallback naive (repeat last value)
+            class _Fallback:
+                def __init__(self, last): self.last = last
+                @property
+                def fittedvalues(self): return np.full(self_len, self.last)
+                def forecast(self, h): return np.full(h, self.last)
+            self._res = _Fallback(y_arr[-1])
+        return self
+
+    def predict(self, X):
+        if self._res is None:
+            raise RuntimeError("Model not fitted.")
+        horizon = len(X)
+        return self._res.forecast(horizon)
+
+    def transform(self, X):
+        # Return in-sample fitted values aligned to X length (truncate or pad)
+        if self._res is None:
+            raise RuntimeError("Model not fitted.")
+        fitted = np.asarray(getattr(self._res, 'fittedvalues', np.full(self._y_len, np.nan)))
+        if len(X) <= self._y_len:
+            return fitted[:len(X)]
+        # pad with last fitted for excess length
+        pad = np.full(len(X) - self._y_len, fitted[-1])
+        return np.concatenate([fitted, pad])
+    
 # AutoML class to automate the machine learning pipeline
 class AutoML:
     """
@@ -84,6 +165,10 @@ class AutoML:
             self.boosting_model = XGBWithEarlyStoppingRegressor()
             self.elastic_net_model_sgd = SGDRegressor(loss='squared_error', penalty='elasticnet', random_state=42)
             self.elastic_net_model_coord_desc = ElasticNet(random_state=42)
+            self.stacked_ensemble_model = StackingRegressor(estimators = [('xgb', XGBWithEarlyStoppingRegressor()),
+                                      ('enet', ElasticNet(random_state=42)), 
+                                      ('knn', KNeighborsRegressor())])
+            self.halfing_cv = HalvingRandomSearchCV(estimator=self.elastic_net_model_sgd, param_distributions={})
 
             self.scoring_func = mean_absolute_error
             self.response_method = 'predict'
@@ -147,12 +232,73 @@ class AutoML:
         
         # Include enet coordinate descent model if regression problem
         if self.y.dtype == float:
+
+            # # ENet model 
             parameters.append({
                 'model': [self.elastic_net_model_coord_desc],
                 'model__l1_ratio': [0, .05, .1, .3, .5, .6, .8, .9, 1],
                 'model__alpha': [2, 1, .5, .1, .01, .005, .001, .00001, 5e-6],
                 'model__max_iter': [3000],
             })
+
+            if self.time_series:
+
+                # Halfing random search ENet 
+                tmp_param_dis = {
+                    'l1_ratio': uniform(0.0, 1.0),
+                    'alpha': loguniform(1e-6, 5),
+                    'eta0': loguniform(1e-4, 1e-1),
+                    'learning_rate': ['constant', 'invscaling', 'adaptive'],
+                    'tol': loguniform(1e-5, 1e-2),   
+                    'validation_fraction': uniform(0.05, 0.25)
+                }
+                # parameters.append({
+                #     'model': [self.halfing_cv],
+                #     'model__estimator': [SGDRegressor(loss='squared_error', penalty='elasticnet', random_state=42)],
+                #     'model__param_distributions': [tmp_param_dis],
+                #     'model__cv':[5],
+                #     'model__scoring':['neg_mean_absolute_error']
+                # })
+
+                # tmp_enet_param_dis = {
+                #     'l1_ratio': uniform(0.0, 1.0),
+                #     'alpha': loguniform(1e-6, 5),
+                #     'max_iter': [3000],
+                #     'tol': loguniform(1e-5, 1e-2)
+                # }
+                # parameters.append({
+                #     'model': [self.halfing_cv],
+                #     'model__estimator': [ElasticNet(random_state=42)],
+                #     'model__param_distributions': [tmp_enet_param_dis],
+                #     'model__cv':[5],
+                #     'model__scoring':['neg_mean_absolute_error']
+                # })
+
+                # # Add ES model (no time index required)
+                parameters.append({
+                    'model': [SimpleESRegressor()],
+                    'model__trend': ['add', None],
+                    'model__damped_trend': [False, True],
+                    'model__seasonal': ['add', None],
+                    'model__seasonal_periods': [4, 6, 8, 12],
+                    'model__use_boxcox': [False, True],
+                    'model__initialization_method': ['estimated', 'heuristic'],
+                })
+
+                # # Stacked ensemble model 
+                # parameters.append({
+                #     'model': [self.stacked_ensemble_model],
+                #     'model__estimators': [[('xgb', XGBWithEarlyStoppingRegressor()),
+                #                           ('enet', ElasticNet(random_state=42)), 
+                #                           ('knn', KNeighborsRegressor())]],
+                #     'model__enet__l1_ratio': [0, .3, .5, .6, 1],
+                #     'model__enet__alpha': [2, 1, .5, .1, .01, .005, .001, .00001],
+                #     'model__knn__n_neighbors':[2, 5, 12],
+                #     # 'model__final_estimator': [RidgeCV(random_state=42)],
+                #     # 'model__final_estimator__l1_ratio': [0, .5, 1],
+                #     # 'model__final_estimator__alpha': [2, .1, .00001],
+                # })
+                
 
         # Perform grid search with cross-validation
         scoring = make_scorer(self.scoring_func, greater_is_better=False, response_method=self.response_method)
