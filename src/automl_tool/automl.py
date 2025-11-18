@@ -28,6 +28,81 @@ warnings.filterwarnings("ignore", message="invalid value encountered in cast")
 from sklearn.base import BaseEstimator, RegressorMixin
 from statsmodels.tsa.holtwinters import ExponentialSmoothing as _HWES
  
+import pmdarima as pmd
+
+class AutoARIMARegressor(BaseEstimator, RegressorMixin):
+    """
+    Sklearn-compatible wrapper around pmdarima.auto_arima (univariate).
+    Ignores X except for length (like SimpleESRegressor).
+    """
+    def __init__(
+        self,
+        seasonal=True,
+        m=12,
+        max_p=5,
+        max_q=5,
+        max_P=2,
+        max_Q=2,
+        max_d=2,
+        max_D=1,
+        stepwise=True,
+        suppress_warnings=True,
+        information_criterion="aic"
+    ):
+        self.seasonal = seasonal
+        self.m = m
+        self.max_p = max_p
+        self.max_q = max_q
+        self.max_P = max_P
+        self.max_Q = max_Q
+        self.max_d = max_d
+        self.max_D = max_D
+        self.stepwise = stepwise
+        self.suppress_warnings = suppress_warnings
+        self.information_criterion = information_criterion
+        self._model = None
+        self._y_len = None
+
+    def fit(self, X, y):
+        y_arr = np.asarray(y, dtype=float)
+        self._y_len = len(y_arr)
+        # If insufficient length for seasonality, turn it off
+        seasonal_flag = self.seasonal and (self.m is not None) and (self._y_len >= 2 * self.m)
+        try:
+            self._model = pmd.auto_arima(
+                y_arr,
+                seasonal=seasonal_flag,
+                m=self.m if seasonal_flag else 1,
+                max_p=self.max_p,
+                max_q=self.max_q,
+                max_P=self.max_P,
+                max_Q=self.max_Q,
+                max_d=self.max_d,
+                max_D=self.max_D,
+                stepwise=self.stepwise,
+                suppress_warnings=self.suppress_warnings,
+                information_criterion=self.information_criterion,
+                error_action="ignore",
+                trace=False,
+            )
+        except Exception:
+            # Fallback: simple mean model
+            class _MeanModel:
+                def __init__(self, mu): self.mu = mu
+                def predict(self, n_periods): return np.full(n_periods, self.mu)
+            self._model = _MeanModel(float(np.mean(y_arr)))
+        return self
+
+    def predict(self, X):
+        if self._model is None:
+            raise RuntimeError("Model not fitted.")
+        horizon = len(X)
+        try:
+            return np.asarray(self._model.predict(n_periods=horizon), dtype=float)
+        except Exception:
+            # Fallback: last value repeat
+            return np.full(horizon, np.nan if self._y_len is None else np.nan)
+
 class SimpleESRegressor(BaseEstimator, RegressorMixin):
     """
     Exponential Smoothing regressor that ignores any time index.
@@ -225,15 +300,66 @@ class AutoML:
 
             if self.time_series:
 
-                # Add ES model (no time index required)
+                # Add ES models - split into 4 groups to avoid redundant parameter combinations
+                # 1. Trend + Seasonal (both damped_trend and seasonal_periods matter)
                 parameters.append({
-                    'model': [SimpleESRegressor()],
-                    'model__trend': ['add', None],
+                    'model': [SimpleESRegressor(trend='add', seasonal='add')],
                     'model__damped_trend': [False, True],
-                    'model__seasonal': ['add', None],
                     'model__seasonal_periods': [4, 6, 8, 12],
                     'model__use_boxcox': [False, True],
                     'model__initialization_method': ['estimated', 'heuristic'],
+                })
+                
+                # 2. Trend only, no seasonal (damped_trend matters, seasonal_periods ignored)
+                parameters.append({
+                    'model': [SimpleESRegressor(trend='add', seasonal=None)],
+                    'model__damped_trend': [False, True],
+                    'model__seasonal_periods': [12],  # doesn't matter, pick one
+                    'model__use_boxcox': [False, True],
+                    'model__initialization_method': ['estimated', 'heuristic'],
+                })
+                
+                # 3. Seasonal only, no trend (seasonal_periods matters, damped_trend ignored)
+                parameters.append({
+                    'model': [SimpleESRegressor(trend=None, seasonal='add')],
+                    'model__damped_trend': [False],  # doesn't matter, pick one
+                    'model__seasonal_periods': [4, 6, 8, 12],
+                    'model__use_boxcox': [False, True],
+                    'model__initialization_method': ['estimated', 'heuristic'],
+                })
+                
+                # 4. Simple exponential smoothing (no trend, no seasonal)
+                parameters.append({
+                    'model': [SimpleESRegressor(trend=None, seasonal=None)],
+                    'model__damped_trend': [False],  # doesn't matter
+                    'model__seasonal_periods': [12],  # doesn't matter
+                    'model__use_boxcox': [False, True],
+                    'model__initialization_method': ['estimated', 'heuristic'],
+                })
+
+                # Add AutoARIMA models - split into seasonal and non-seasonal to avoid redundancy
+                # Seasonal ARIMA: try different seasonal periods
+                parameters.append({
+                    'model': [AutoARIMARegressor(seasonal=True)],
+                    'model__m': [4, 6, 12],
+                    'model__max_p': [5],
+                    'model__max_q': [5],
+                    'model__max_P': [2],
+                    'model__max_Q': [2],
+                    'model__stepwise': [True],
+                    'model__information_criterion': ['aic'],
+                })
+                
+                # Non-seasonal ARIMA: m doesn't matter, only need one
+                parameters.append({
+                    'model': [AutoARIMARegressor(seasonal=False)],
+                    'model__m': [12],  # value doesn't matter when seasonal=False
+                    'model__max_p': [5],
+                    'model__max_q': [5],
+                    'model__max_P': [2],
+                    'model__max_Q': [2],
+                    'model__stepwise': [True],
+                    'model__information_criterion': ['aic'],
                 })
                 
         # Perform grid search with cross-validation
