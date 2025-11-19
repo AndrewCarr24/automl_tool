@@ -5,3 +5,6 @@ testing_notebooks
 *.egg-info/
 .vscode/
 build/
+performance.csv
+test_nb.ipynb
+sandbox/*
