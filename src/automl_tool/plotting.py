@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.image as mpimg
 from .estimation import XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegressor
+from .automl import SimpleESRegressor, AutoARIMARegressor   
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.linear_model import ElasticNet
 from sklearn.utils import Bunch
@@ -36,17 +37,31 @@ class PlotTools:
         Returns:
         pd.DataFrame: A DataFrame containing the feature importance scores based on SHAP values.
         """
-        # Get masker for shap Explainer function 
+        # Transform X once
         X_transformed = fitted_pipeline.best_estimator_['preprocessor'].transform(X)
-        if isinstance(fitted_pipeline.best_estimator_['model'], (XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegressor)):
-            inp_masker = None
-        elif isinstance(fitted_pipeline.best_estimator_['model'], (SGDClassifier, SGDRegressor, ElasticNet)):
+        model = fitted_pipeline.best_estimator_['model']
+
+        # Guard: univariate models (ignore engineered predictors)
+        if isinstance(model, (SimpleESRegressor, AutoARIMARegressor)):
+            raise ValueError(
+                "Model uses only the dependent variable for prediction and cannot compute feature importance (univariate smoothing/ARIMA)."
+            )
+
+        # Choose masker logic for supported models
+        if isinstance(model, (XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegressor)):
+            inp_masker = None  # let tree explainer infer background
+        elif isinstance(model, (SGDClassifier, SGDRegressor)):
+            inp_masker = X_transformed  # linear models: pass matrix directly
+        else:
+            # Fallback: attempt generic masking; may not work for unsupported custom models
             inp_masker = X_transformed
 
-        # Get shap values 
-        explainer = shap.Explainer(model=fitted_pipeline.best_estimator_['model'],
-                                   masker=inp_masker,
-                                   feature_names=fitted_pipeline.best_estimator_['preprocessor'].get_feature_names_out())
+        # Build SHAP explainer (will dispatch to specific explainer if recognized)
+        explainer = shap.Explainer(
+            model=model,
+            masker=inp_masker,
+            feature_names=fitted_pipeline.best_estimator_['preprocessor'].get_feature_names_out()
+        )
         shap_values = explainer(X_transformed)
 
         feature_imp_tbl = (pd.DataFrame({'transformed_feature': fitted_pipeline.best_estimator_['preprocessor'].get_feature_names_out(),
@@ -136,9 +151,9 @@ class PlotTools:
     
     def get_permutation_importance(self, fitted_pipeline: Pipeline, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
         
-        if isinstance(fitted_pipeline.best_estimator_['model'], (XGBWithEarlyStoppingClassifier, SGDClassifier)):
+        if isinstance(fitted_pipeline.best_estimator_['model'], XGBWithEarlyStoppingClassifier) | isinstance(fitted_pipeline.best_estimator_['model'], SGDClassifier):
             perm_scorer = 'neg_log_loss'
-        elif isinstance(fitted_pipeline.best_estimator_['model'], (XGBWithEarlyStoppingRegressor, SGDRegressor, ElasticNet)):
+        elif isinstance(fitted_pipeline.best_estimator_['model'], XGBWithEarlyStoppingRegressor) | isinstance(fitted_pipeline.best_estimator_['model'], SGDRegressor):
             perm_scorer = 'neg_mean_squared_error'
 
         # Compute permutation importance scores (takes a couple minutes or more depending on size of prediction dataset and n_repeats)
@@ -256,6 +271,13 @@ class PlotTools:
         -----
         - For categorical variables, only the top N categories (default 14) are used for plotting.
         """
+
+        # Guard: PDP not meaningful for univariate models that ignore engineered predictors
+        model = fitted_pipeline.best_estimator_['model']
+        if isinstance(model, (SimpleESRegressor, AutoARIMARegressor)):
+            raise ValueError(
+                "Model uses only the dependent variable for prediction and cannot compute partial dependence plots (univariate smoothing/ARIMA)."
+            )
 
         # Transform many-category variable
         def _transform_cat_var(df: pd.DataFrame, column_name: str) -> pd.DataFrame:
