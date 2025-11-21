@@ -150,11 +150,24 @@ class PlotTools:
         return feature_mapping_tbl    
     
     def get_permutation_importance(self, fitted_pipeline: Pipeline, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
-        
-        if isinstance(fitted_pipeline.best_estimator_['model'], XGBWithEarlyStoppingClassifier) | isinstance(fitted_pipeline.best_estimator_['model'], SGDClassifier):
+        model = fitted_pipeline.best_estimator_['model']
+
+        # Guard: univariate models do not use engineered features
+        if isinstance(model, (SimpleESRegressor, AutoARIMARegressor)):
+            raise ValueError(
+                "Model uses only the dependent variable for prediction and cannot compute permutation feature importance (univariate smoothing/ARIMA)."
+            )
+
+        if isinstance(model, (XGBWithEarlyStoppingClassifier, SGDClassifier)):
             perm_scorer = 'neg_log_loss'
-        elif isinstance(fitted_pipeline.best_estimator_['model'], XGBWithEarlyStoppingRegressor) | isinstance(fitted_pipeline.best_estimator_['model'], SGDRegressor):
+        elif isinstance(model, (XGBWithEarlyStoppingRegressor, SGDRegressor)):
             perm_scorer = 'neg_mean_squared_error'
+        else:
+            # Fallback for other regressors/classifiers: default to neg MSE for regressors, log_loss for classifiers
+            if hasattr(model, 'predict_proba'):
+                perm_scorer = 'neg_log_loss'
+            else:
+                perm_scorer = 'neg_mean_squared_error'
 
         # Compute permutation importance scores (takes a couple minutes or more depending on size of prediction dataset and n_repeats)
         result = permutation_importance(fitted_pipeline, X, y, n_repeats=5, random_state=42,
