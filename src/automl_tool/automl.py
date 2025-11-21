@@ -6,7 +6,6 @@ from sklearn.model_selection import GridSearchCV
 from .preprocessing import Prepreprocessor
 from .estimation import XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegressor
 from xgboost import XGBRegressor
-from .plotting import PlotTools
 from sklearn.metrics import make_scorer, log_loss, mean_absolute_error
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.linear_model import ElasticNet
@@ -168,46 +167,50 @@ class SimpleESRegressor(BaseEstimator, RegressorMixin):
     
 # AutoML class to automate the machine learning pipeline
 class AutoML:
-    """
-    AutoML class to automate the machine learning pipeline.
+    """AutoML class to automate the machine learning pipeline.
 
-    This class provides functionality to automate the process of building, training, and evaluating machine learning models. It supports both time series and non-time series data, and can handle binary classification and regression tasks.
+    Provides functionality to build, train, and evaluate models for regression and binary classification
+    across standard (tabular) and time series data. Uses a unified sklearn `Pipeline` + `GridSearchCV`.
 
-    Attributes:
-    X (pd.DataFrame): The input feature matrix.
-    y (pd.Series): The target variable.
-    target (str): The name of the target variable.
-    time_series (bool): Whether the data is time series data. Default is False.
-    boosting_model: The boosting model used for classification or regression.
-    elastic_net_model: The ElasticNet model used for classification or regression.
-    scoring_func: The scoring function used for model evaluation.
-    response_method: The method used to get the model's response (e.g., 'predict_proba' for classification).
+    Parameters
+    ----------
+    X : pd.DataFrame
+        Input feature matrix.
+    y : pd.Series
+        Target vector (numeric only; int for binary classification, float for regression).
+    outcome : str
+        Name of target variable (used for labeling/metadata).
+    time_series : bool, default False
+        If True, enables time series cross-validation (rolling origin) and allows inclusion of
+        univariate forecasting model families (Exponential Smoothing, AutoARIMA) for regression.
+    only_sklearn_models : bool, default False
+        When True (for time series regression), restricts candidate models to sklearn-compatible,
+        feature-driven estimators (ElasticNet variants, SGD, XGBoost) and skips univariate models
+        (SimpleESRegressor, AutoARIMARegressor). Helpful for faster runs or purely exogenous-feature
+        interpretation workflows.
 
-    Methods:
-    __init__(self, X: pd.DataFrame, y: pd.Series, outcome: str, time_series: bool = False):
-        Initializes the AutoML class with the input data and target variable.
-
-    fit_pipeline(self, holdout_window: int = None):
-        Fits the pipeline with cross-validation and grid search.
-
-    get_feature_importance_scores(self, X_pred: pd.DataFrame = None, y_pred: pd.Series = None, type: str = 'shap'):
-        Calculates and stores feature importance scores for the fitted pipeline.
-
-    plot_feature_importance_scores(self, logo: bool = False, top_k: Optional[int] = None):
-        Generates and stores a plot of the feature importance scores.
-
-    get_partial_dependence_plots(self, logo: bool = False):
-        Generates partial dependence plots for the fitted pipeline.
-
-    get_backtest_plots(self):
-        Generates backtest plots for the fitted pipeline (only works for time series).
+    Attributes (post-init)
+    ----------------------
+    boosting_model : estimator
+        XGBoost wrapper chosen by task type.
+    elastic_net_model_sgd : estimator
+        SGD-based ElasticNet variant.
+    elastic_net_model_coord_desc : estimator (regression only)
+        Coordinate descent ElasticNet.
+    scoring_func : callable
+        Underlying metric used in scorer (log_loss or mean_absolute_error).
+    response_method : str
+        Method name passed to scorer (`predict_proba` or `predict`).
+    only_sklearn_models : bool
+        Flag controlling inclusion of univariate forecasting models when time series.
     """
     
-    def __init__(self, X: pd.DataFrame, y: pd.Series, outcome: str, time_series: bool = False) -> None:
+    def __init__(self, X: pd.DataFrame, y: pd.Series, outcome: str, time_series: bool = False, only_sklearn_models: bool = False) -> None:
         self.X = X
         self.y = y
         self.target = outcome
         self.time_series = time_series
+        self.only_sklearn_models = only_sklearn_models
 
         # Throw error if target variable is in the input feature matrix
         if self.target in self.X.columns:
@@ -298,7 +301,7 @@ class AutoML:
                 'model__max_iter': [3000],
             })
 
-            if self.time_series:
+            if self.time_series and not self.only_sklearn_models:
 
                 # Add ES models - split into 4 groups to avoid redundant parameter combinations
                 # 1. Trend + Seasonal (both damped_trend and seasonal_periods matter)
@@ -390,6 +393,7 @@ class AutoML:
         if y_pred is None:
             y_pred = self.y 
 
+        from .plotting import PlotTools
         if type == 'shap':
             importance_df = PlotTools().get_shap_values(self.fitted_pipeline, X_pred, y_pred)
         elif type == 'permutation':
@@ -409,6 +413,7 @@ class AutoML:
         Returns:
         None: The method sets the feature_importance_plot attribute with the generated plot.
         """
+        from .plotting import PlotTools  # lazy import
         tmp_plt = PlotTools().plot_feature_importance(self.feature_importance_scores, logo, top_k)
         self.feature_importance_plot = tmp_plt
 
@@ -422,6 +427,7 @@ class AutoML:
         Returns:
         None: The method sets the partial_dependence_plots attribute with a dict of the generated plots.
         """
+        from .plotting import PlotTools   
         tmp_plts = PlotTools().get_pdp(self.fitted_pipeline, self.X, logo, self.target)
         self.partial_dependence_plots = tmp_plts
 
@@ -435,6 +441,7 @@ class AutoML:
         if not self.time_series:
             raise ValueError('Backtest plots are only available for time series data.')
         
+        from .plotting import PlotTools   
         tmp_plts = PlotTools().get_bt_plts(self.fitted_pipeline, self.X, self.y, self.holdout_window)
         self.backtest_plots = tmp_plts
 
