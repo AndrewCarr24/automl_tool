@@ -31,7 +31,11 @@ dependencies = [
     "pmdarima>=2.0",
     "opinionated",
     "ipywidgets",
-    "pytest>=8.3.4"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.4",
 ]
 
 [project.urls]
