@@ -21,6 +21,11 @@ from sklearn.model_selection import TimeSeriesSplit
 from typing import Dict, Optional, Union, Any, Type, Tuple, List
 import matplotlib.figure
 
+# Cache frequently used paths at module level for efficiency
+_CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+_STYLE_PATH = os.path.join(_CURRENT_DIR, 'styles', 'opinionated_rc.mplstyle')
+_LOGO_PATH = os.path.join(_CURRENT_DIR, 'assets', 'logo_placeholder.png')
+
 class PlotTools:
     def __init__(self) -> None:
         pass
@@ -38,7 +43,8 @@ class PlotTools:
         pd.DataFrame: A DataFrame containing the feature importance scores based on SHAP values.
         """
         # Transform X once
-        X_transformed = fitted_pipeline.best_estimator_['preprocessor'].transform(X)
+        preprocessor = fitted_pipeline.best_estimator_['preprocessor']
+        X_transformed = preprocessor.transform(X)
         model = fitted_pipeline.best_estimator_['model']
 
         # Guard: univariate models (ignore engineered predictors)
@@ -46,6 +52,9 @@ class PlotTools:
             raise ValueError(
                 "Model uses only the dependent variable for prediction and cannot compute feature importance (univariate smoothing/ARIMA)."
             )
+
+        # Get feature names once (avoid multiple calls)
+        feature_names = preprocessor.get_feature_names_out()
 
         # Choose masker logic for supported models
         if isinstance(model, (XGBWithEarlyStoppingClassifier, XGBWithEarlyStoppingRegressor)):
@@ -60,13 +69,13 @@ class PlotTools:
         explainer = shap.Explainer(
             model=model,
             masker=inp_masker,
-            feature_names=fitted_pipeline.best_estimator_['preprocessor'].get_feature_names_out()
+            feature_names=feature_names
         )
         shap_values = explainer(X_transformed)
 
-        feature_imp_tbl = (pd.DataFrame({'transformed_feature': fitted_pipeline.best_estimator_['preprocessor'].get_feature_names_out(),
+        feature_imp_tbl = (pd.DataFrame({'transformed_feature': feature_names,
                                          'sv_contrib': np.abs(shap_values.values).mean(0)})
-                                         .merge(self._build_feature_mapping(fitted_pipeline.best_estimator_['preprocessor']), on='transformed_feature', how='left')
+                                         .merge(self._build_feature_mapping(preprocessor), on='transformed_feature', how='left')
                                          .groupby('original_column')
                                          .agg({'sv_contrib': 'sum'})
                                          .sort_values('sv_contrib', ascending = False)
@@ -92,7 +101,9 @@ class PlotTools:
         if not hasattr(fitted_preprocessor, 'transformers_'):
             raise ValueError("Preprocessor must be fitted before building feature mapping.")
         
-        transformed_names = list(fitted_preprocessor.get_feature_names_out())
+        transformed_names = fitted_preprocessor.get_feature_names_out()
+        # Use a set for O(1) membership checks instead of O(n) list lookups
+        transformed_names_set = set(transformed_names)
         original_map: Dict[str, str] = {}
         
         for name, transformer, cols in fitted_preprocessor.transformers_:
@@ -115,7 +126,7 @@ class PlotTools:
                 expanded_features = final_step.get_feature_names_out(ohe_cols)
                 for exp_feature in expanded_features:
                     prefixed_feature = f"{name}__{exp_feature}"
-                    if prefixed_feature in transformed_names:
+                    if prefixed_feature in transformed_names_set:
                         # Extract original column name from expanded feature
                         # Format is typically "original_col_category"
                         for orig_col in ohe_cols:
@@ -129,7 +140,7 @@ class PlotTools:
                 base_col = cols if isinstance(cols, str) else cols[0]
                 for vf in vocab_features:
                     prefixed_feature = f"{name}__{vf}"
-                    if prefixed_feature in transformed_names:
+                    if prefixed_feature in transformed_names_set:
                         original_map[prefixed_feature] = base_col
             
             # Numeric features (scaler/imputer) - one-to-one mapping
@@ -137,7 +148,7 @@ class PlotTools:
                 base_cols = cols if isinstance(cols, list) else list(cols)
                 for c in base_cols:
                     prefixed_feature = f"{name}__{c}"
-                    if prefixed_feature in transformed_names:
+                    if prefixed_feature in transformed_names_set:
                         original_map[prefixed_feature] = c
         
         feature_mapping_tbl = (pd.DataFrame({
@@ -199,11 +210,8 @@ class PlotTools:
 
         # Plot feature importance scores
 
-        # Get style
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        style_path = os.path.join(current_dir, 'styles', 'opinionated_rc.mplstyle')
-        plt.style.use(style_path)
-        # plt.style.use("opinionated_rc")
+        # Use cached style path
+        plt.style.use(_STYLE_PATH)
 
         # Set the rcParams
         plt.rcParams.update({
@@ -234,15 +242,11 @@ class PlotTools:
         sns.despine(left=False, bottom=False)
 
         if logo:
-            # Get the directory of the current file
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            # Construct the absolute path to the logo image
-            logo_path = os.path.join(current_dir, 'assets', 'logo_placeholder.png')
-            # Add logo to the bottom right corner of the plot, under the x-axis
-            logo = mpimg.imread(logo_path)
+            # Use cached logo path
+            logo_img = mpimg.imread(_LOGO_PATH)
             # Create a new set of axes for the logo
             logo_ax = fig.add_axes([.8, .02, 0.1, 0.1], anchor='SE', zorder=10)
-            logo_ax.imshow(logo)
+            logo_ax.imshow(logo_img)
             logo_ax.axis('off')  # Hide the axes
 
         # Close the figure to prevent it from displaying
@@ -296,8 +300,9 @@ class PlotTools:
         def _transform_cat_var(df: pd.DataFrame, column_name: str) -> pd.DataFrame:
             # Get the most common values
             top_n = df[column_name].value_counts().nlargest(14).index
-            # Replace values not in the top nlargest with 'Other'
-            df[column_name] = df[column_name].apply(lambda x: x if x in top_n else 'Other')  
+            # Replace values not in the top nlargest with 'Other' using vectorized operation
+            top_n_set = set(top_n)
+            df[column_name] = df[column_name].where(df[column_name].isin(top_n_set), 'Other')
             # Filter out rows where the value is 'Other'
             ## TODO -- add parm to control whether to include the Other row
             df = df[df[column_name] != 'Other']
@@ -341,11 +346,8 @@ class PlotTools:
                 
             fig, ax = plt.subplots(figsize=(plt_len, 4.5))
 
-            # Get style
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            style_path = os.path.join(current_dir, 'styles', 'opinionated_rc.mplstyle')
-            plt.style.use(style_path)
-            # plt.style.use("opinionated_rc")
+            # Use cached style path
+            plt.style.use(_STYLE_PATH)
 
             plt.rcParams.update({'grid.linestyle': '-',})
             plt.xlabel(f"Feature ({varname})", fontsize=11, loc='center')
@@ -358,14 +360,11 @@ class PlotTools:
             plt.scatter(grid_vals, pdp_output['average'][0], color='#038747')
 
             if logo:
-                # Get the directory of the current file
-                current_dir = os.path.dirname(os.path.abspath(__file__))
-                # Construct the absolute path to the logo image
-                logo_path = os.path.join(current_dir, 'assets', 'logo_placeholder.png')
-                logo = mpimg.imread(logo_path)
+                # Use cached logo path
+                logo_img = mpimg.imread(_LOGO_PATH)
                 # Create a new set of axes for the logo
                 logo_ax = fig.add_axes([0.82, -0.03, 0.1, 0.1], anchor='SE', zorder=10)
-                logo_ax.imshow(logo)
+                logo_ax.imshow(logo_img)
                 logo_ax.axis('off')  # Hide the axes
 
             plt.close()
@@ -373,12 +372,15 @@ class PlotTools:
             return fig
 
         pdp_plots = {}
+        # Create StringDtype instance once outside loop for efficient comparison
+        string_dtype = pd.StringDtype()
         for varname in X.columns:
 
             if X[varname].dtype == object:
-                X = X.assign(**{varname: lambda df_: df_[varname].astype(str)}).pipe(_transform_cat_var, varname)
+                X[varname] = X[varname].astype(str)
+                X = _transform_cat_var(X, varname)
 
-            if X[varname].dtype != pd.StringDtype():
+            if X[varname].dtype != string_dtype:
 
                 pdp_output = partial_dependence(fitted_pipeline, X, features = [varname])
 
