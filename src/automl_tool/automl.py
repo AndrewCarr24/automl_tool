@@ -260,8 +260,10 @@ class AutoML:
         else:
             cv_obj = 5
 
-        # Convert boolean features to ints 
-        self.X = self.X.apply(lambda col: col.astype(int) if col.dtype == 'bool' else col)
+        # Convert boolean features to ints - use vectorized operation for efficiency
+        bool_cols = self.X.select_dtypes(include=['bool']).columns
+        if len(bool_cols) > 0:
+            self.X[bool_cols] = self.X[bool_cols].astype(int)
 
         # Build the preprocessor
         preprocessor = Prepreprocessor().build_preprocessor(self.X)

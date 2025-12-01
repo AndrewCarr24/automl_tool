@@ -22,37 +22,33 @@ def ts_train_test_split(
     """
 
     # Helper function to preprocess ts data
-    def _ts_preproc(inp_tbl: pd.DataFrame, inp_y: pd.Series) -> Tuple[pd.DataFrame, pd.Series]:   
-        preproc_tbl = (inp_tbl
-        .pipe(lambda x: x.assign(**{f"lagged_{outcome_col}_{i}m": x[outcome_col].shift(i) for i in range(forecast_window, fdw + 1)}))
-        .pipe(lambda x: x.assign(**{f"inv_hyp_sin_lagged_{outcome_col}_{i}m": np.arcsinh(x[outcome_col].shift(i)) for i in range(forecast_window, fdw + 1)}))
-        .pipe(lambda x: x.assign(**{f"rolling_avg_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).mean() for i in range(forecast_window, fdw + 1)}))
-        # .pipe(lambda x: x.assign(**{f"min_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).min() for i in range(forecast_window, fdw + 1)}))
+    def _ts_preproc(inp_tbl: pd.DataFrame, inp_y: pd.Series) -> Tuple[pd.DataFrame, pd.Series]:
+        # Work with a copy to avoid SettingWithCopyWarning
+        preproc_tbl = inp_tbl.copy()
         
-        # New time and seasonal features
-        .pipe(lambda x: x.assign(
-            # t=np.arange(len(x)),
-            monthsin=np.sin(2 * np.pi * pd.to_datetime(x[date_col]).dt.month / 12.0),
-            # monthcos=np.cos(2 * np.pi * pd.to_datetime(x[date_col]).dt.month / 12.0),
-        ))
-
-        # # NEW: Exponentially weighted moving averages (smooth trends)
-        # .pipe(lambda x: x.assign(**{
-        #     f"ewm_{outcome_col}_{span}m": x[outcome_col].shift(1).ewm(span=span, adjust=False).mean() 
-        #     for span in [3, 6, 12]
-        # }))
+        outcome_series = preproc_tbl[outcome_col]
+        # Cache shifted series to avoid repeated computation
+        outcome_shift_1 = outcome_series.shift(1)
         
-        # NEW: Max rolling (capture upper volatility bounds)
-        .pipe(lambda x: x.assign(**{
-            f"max_{outcome_col}_{i}m": x[outcome_col].shift(1).rolling(window=i).max() 
-            for i in [3, 6, 12]
-        }))
+        # Create lagged features
+        for i in range(forecast_window, fdw + 1):
+            shifted = outcome_series.shift(i)
+            preproc_tbl[f"lagged_{outcome_col}_{i}m"] = shifted
+            preproc_tbl[f"inv_hyp_sin_lagged_{outcome_col}_{i}m"] = np.arcsinh(shifted)
+            preproc_tbl[f"rolling_avg_{outcome_col}_{i}m"] = outcome_shift_1.rolling(window=i).mean()
+        
+        # Time and seasonal features
+        preproc_tbl['monthsin'] = np.sin(2 * np.pi * pd.to_datetime(preproc_tbl[date_col]).dt.month / 12.0)
+        
+        # Max rolling features
+        for i in [3, 6, 12]:
+            preproc_tbl[f"max_{outcome_col}_{i}m"] = outcome_shift_1.rolling(window=i).max()
 
         # Drop the original date and outcome columns
-        .drop([date_col, outcome_col], axis=1)
+        preproc_tbl = preproc_tbl.drop([date_col, outcome_col], axis=1)
         # Rowwise deletion of missing values
-        .dropna(axis=0)
-        )
+        preproc_tbl = preproc_tbl.dropna(axis=0)
+        
         preproc_y = inp_y.loc[preproc_tbl.index]
 
         return preproc_tbl, preproc_y
