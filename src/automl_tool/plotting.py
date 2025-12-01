@@ -377,7 +377,8 @@ class PlotTools:
         for varname in X.columns:
 
             if X[varname].dtype == object:
-                X = X.assign(**{varname: lambda df_: df_[varname].astype(str)}).pipe(_transform_cat_var, varname)
+                X[varname] = X[varname].astype(str)
+                X = _transform_cat_var(X, varname)
 
             if X[varname].dtype != string_dtype:
 

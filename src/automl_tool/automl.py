@@ -262,8 +262,7 @@ class AutoML:
 
         # Convert boolean features to ints - use vectorized operation for efficiency
         bool_cols = self.X.select_dtypes(include=['bool']).columns
-        if len(bool_cols) > 0:
-            self.X[bool_cols] = self.X[bool_cols].astype(int)
+        self.X[bool_cols] = self.X[bool_cols].astype(int)
 
         # Build the preprocessor
         preprocessor = Prepreprocessor().build_preprocessor(self.X)

@@ -23,7 +23,8 @@ def ts_train_test_split(
 
     # Helper function to preprocess ts data
     def _ts_preproc(inp_tbl: pd.DataFrame, inp_y: pd.Series) -> Tuple[pd.DataFrame, pd.Series]:
-        # Work with a copy to avoid SettingWithCopyWarning
+        # Work with a copy to avoid SettingWithCopyWarning.
+        # Note: This has memory implications for large datasets as it duplicates the DataFrame.
         preproc_tbl = inp_tbl.copy()
         
         outcome_series = preproc_tbl[outcome_col]
