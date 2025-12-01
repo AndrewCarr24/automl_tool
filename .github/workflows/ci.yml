@@ -10,6 +10,9 @@ on:
     branches:
       - main
 
+env:
+  MPLBACKEND: Agg
+
 jobs:
   # Quick smoke test on latest Python/Ubuntu
   quick-test:
