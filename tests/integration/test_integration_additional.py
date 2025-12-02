@@ -30,12 +30,12 @@ def test_feature_importance_permutation_path(regression_data: Tuple[pd.DataFrame
     X, y = regression_data
     automl = AutoML(X, y, 'target')
     automl.fit_pipeline()
-    # Only supported for XGB / SGD models in current implementation; skip otherwise
+    # Permutation importance works for all feature-based models; only univariate models (ES/ARIMA) are unsupported
     model = automl.fitted_pipeline.best_estimator_['model']
     model_cls_name = model.__class__.__name__
-    supported = {"XGBWithEarlyStoppingRegressor", "SGDRegressor", "XGBWithEarlyStoppingClassifier", "SGDClassifier"}
-    if model_cls_name not in supported:
-        pytest.skip(f"Permutation importance not implemented for model type {model_cls_name} in current plotting logic.")
+    unsupported = {"SimpleESRegressor", "AutoARIMARegressor"}
+    if model_cls_name in unsupported:
+        pytest.skip(f"Permutation importance not supported for univariate model type {model_cls_name}.")
     automl.get_feature_importance_scores(type='permutation')
     fi = automl.feature_importance_scores
     assert isinstance(fi, pd.DataFrame)
