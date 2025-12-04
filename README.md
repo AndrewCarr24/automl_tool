@@ -112,6 +112,27 @@ automl.partial_dependence_plots["mean radius"]
 
 
 
+### Time Series Forecasting Benchmark
+
+AutoML includes time series forecasting capabilities. The table below compares AutoML's performance against Prophet and sktime on a variety of synthetic and real-world time series (24-month holdout, MAE metric). See the [notebook](misc/compare_automl_prophet_sktime.ipynb) for details:
+
+| Series | Type | AutoML MAE | Prophet MAE | sktime MAE | Winner |
+|--------|------|------------|-------------|------------|--------|
+| Seasonal+Trend | Synthetic | 1.76 | 1.91 | 1.57 | sktime |
+| Linear Trend | Synthetic | 2.18 | 2.23 | 2.15 | sktime |
+| Quadratic | Synthetic | 1.54 | 12.32 | 1.44 | sktime |
+| Logistic (S-curve) | Synthetic | 2.50 | 2.87 | 2.32 | sktime |
+| Random Walk (drift) | Synthetic | 0.72 | 1.69 | 1.48 | automl |
+| Piecewise (changepoints) | Synthetic | 1.92 | 1.91 | 2.97 | prophet |
+| Spiky Intermittent | Synthetic | 1.67 | 1.64 | 1.66 | prophet |
+| Multi-seasonal | Synthetic | 1.46 | 1.40 | 1.58 | prophet |
+| CO2 | Real (statsmodels) | 0.25 | 0.37 | 0.29 | automl |
+| CPIAUCSL | Real (FRED) | 0.44 | 1.53 | 2.90 | automl |
+| UNRATE | Real (FRED) | 0.12 | 0.28 | 0.17 | automl |
+| INDPRO | Real (FRED) | 0.46 | 0.72 | 1.66 | automl |
+| **Average** | | **1.25** | **2.41** | **1.68** | **automl** |
+
+AutoML is competitive with dedicated time series packages, particularly on real-world economic data (FRED series), where it consistently outperforms both Prophet and sktime.
 
 ```python
 
