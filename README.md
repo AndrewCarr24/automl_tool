@@ -132,8 +132,4 @@ AutoML includes time series forecasting capabilities. The table below compares A
 | INDPRO | Real (FRED) | 0.46 | 0.72 | 1.66 | automl |
 | **Average** | | **1.25** | **2.41** | **1.68** | **automl** |
 
-AutoML is competitive with dedicated time series packages, particularly on real-world economic data (FRED series), where it consistently outperforms both Prophet and sktime.
 
-```python
-
-```
