@@ -369,9 +369,15 @@ class AutoML:
                 
         # Perform grid search with cross-validation
         scoring = make_scorer(self.scoring_func, greater_is_better=False, response_method=self.response_method)
-        grid_tmp = GridSearchCV(tmp_pipeline, parameters, cv=cv_obj, n_jobs=-1, verbose=0, scoring=scoring)
+        grid_tmp = GridSearchCV(tmp_pipeline, parameters, cv=cv_obj, n_jobs=1, verbose=0, scoring=scoring)
         
-        self.fitted_pipeline = grid_tmp.fit(self.X, self.y)
+        with warnings.catch_warnings():
+            # Filter specific spurious warnings from Apple Accelerate / NumPy
+            warnings.filterwarnings("ignore", message=".*divide by zero encountered in matmul.*")
+            warnings.filterwarnings("ignore", message=".*overflow encountered in matmul.*")
+            warnings.filterwarnings("ignore", message=".*invalid value encountered in matmul.*")
+            
+            self.fitted_pipeline = grid_tmp.fit(self.X, self.y)
 
     def get_feature_importance_scores(
         self, 
