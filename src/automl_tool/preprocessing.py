@@ -101,7 +101,7 @@ class Prepreprocessor:
 
         ## Preprocessing pipeline
         # Identify numerical, categorical, and text columns 
-        numeric_cols = X.select_dtypes(include=['int64', 'float64']).columns
+        numeric_cols = X.select_dtypes(include=[np.number]).columns
         categorical_cols = X.select_dtypes(include=['object']).columns
         text_cols = X.select_dtypes(include=['string']).columns
 

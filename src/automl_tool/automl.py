@@ -1,5 +1,6 @@
 
 import pandas as pd
+from pandas.api.types import is_integer_dtype, is_float_dtype
 import numpy as np
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import GridSearchCV
@@ -219,14 +220,14 @@ class AutoML:
         # Store boosting and linear classification/regression models
         if self.y.dtype in [object, bool]:
             raise ValueError('Target variable must be numeric. For binary classification, convert target variable to integer with values 0 and 1. For regression, convert target variable to float.')
-        elif self.y.dtype == int:
+        elif is_integer_dtype(self.y):
             if self.y.value_counts().shape[0] != 2:
                 raise ValueError('Target variable must be binary for binary classification. Multiclass modeling is currently not supported.')
             self.boosting_model = XGBWithEarlyStoppingClassifier()
             self.elastic_net_model_sgd = SGDClassifier(loss='log_loss', penalty='elasticnet', random_state=42)
             self.scoring_func = log_loss
             self.response_method = 'predict_proba'
-        elif self.y.dtype == float:
+        elif is_float_dtype(self.y):
             self.boosting_model = XGBWithEarlyStoppingRegressor()
             self.elastic_net_model_sgd = SGDRegressor(loss='squared_error', penalty='elasticnet', random_state=42)
             self.elastic_net_model_coord_desc = ElasticNet(random_state=42)
