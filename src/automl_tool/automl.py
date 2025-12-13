@@ -25,6 +25,10 @@ warnings.filterwarnings("ignore", category=StatsmodelsConvergenceWarning)
 warnings.filterwarnings("ignore", message="A worker stopped while some jobs were given to the executor")
 warnings.filterwarnings("ignore", message="invalid value encountered in cast")
 
+warnings.filterwarnings("ignore", message=".*divide by zero encountered in matmul.*")
+warnings.filterwarnings("ignore", message=".*overflow encountered in matmul.*")
+warnings.filterwarnings("ignore", message=".*invalid value encountered in matmul.*")
+
 from sklearn.base import BaseEstimator, RegressorMixin
 from statsmodels.tsa.holtwinters import ExponentialSmoothing as _HWES
  
@@ -305,79 +309,63 @@ class AutoML:
 
             if self.time_series and not self.only_sklearn_models:
 
-                # Add ES models - split into 4 groups to avoid redundant parameter combinations
-                # 1. Trend + Seasonal (both damped_trend and seasonal_periods matter)
-                parameters.append({
-                    'model': [SimpleESRegressor(trend='add', seasonal='add')],
-                    'model__damped_trend': [False, True],
-                    'model__seasonal_periods': [4, 6, 8, 12],
+                # --- SimpleESRegressor ---
+                # Common parameters for all ES models
+                es_common = {
                     'model__use_boxcox': [False, True],
                     'model__initialization_method': ['estimated', 'heuristic'],
-                })
+                }
                 
-                # 2. Trend only, no seasonal (damped_trend matters, seasonal_periods ignored)
-                parameters.append({
-                    'model': [SimpleESRegressor(trend='add', seasonal=None)],
-                    'model__damped_trend': [False, True],
-                    'model__seasonal_periods': [12],  # doesn't matter, pick one
-                    'model__use_boxcox': [False, True],
-                    'model__initialization_method': ['estimated', 'heuristic'],
-                })
+                # Valid Trend configurations (Trend type + Damped option)
+                es_trend_configs = [
+                    {'model__trend': ['add'], 'model__damped_trend': [False, True]},
+                    {'model__trend': [None],  'model__damped_trend': [False]},
+                ]
                 
-                # 3. Seasonal only, no trend (seasonal_periods matters, damped_trend ignored)
-                parameters.append({
-                    'model': [SimpleESRegressor(trend=None, seasonal='add')],
-                    'model__damped_trend': [False],  # doesn't matter, pick one
-                    'model__seasonal_periods': [4, 6, 8, 12],
-                    'model__use_boxcox': [False, True],
-                    'model__initialization_method': ['estimated', 'heuristic'],
-                })
-                
-                # 4. Simple exponential smoothing (no trend, no seasonal)
-                parameters.append({
-                    'model': [SimpleESRegressor(trend=None, seasonal=None)],
-                    'model__damped_trend': [False],  # doesn't matter
-                    'model__seasonal_periods': [12],  # doesn't matter
-                    'model__use_boxcox': [False, True],
-                    'model__initialization_method': ['estimated', 'heuristic'],
-                })
+                # Valid Seasonal configurations (Seasonal type + Periods)
+                es_seasonal_configs = [
+                    {'model__seasonal': ['add'], 'model__seasonal_periods': [4, 6, 8, 12]},
+                    {'model__seasonal': [None],  'model__seasonal_periods': [12]}, # 12 is dummy
+                ]
 
-                # Add AutoARIMA models - split into seasonal and non-seasonal to avoid redundancy
-                # Seasonal ARIMA: try different seasonal periods
-                parameters.append({
-                    'model': [AutoARIMARegressor(seasonal=True)],
-                    'model__m': [4, 6, 12],
-                    'model__max_p': [5],
-                    'model__max_q': [5],
-                    'model__max_P': [2],
-                    'model__max_Q': [2],
+                # Generate ES grid by combining Trend x Seasonal configurations
+                for t_conf in es_trend_configs:
+                    for s_conf in es_seasonal_configs:
+                        # Start with a fresh model instance
+                        p = {'model': [SimpleESRegressor()]}
+                        p.update(es_common)
+                        p.update(t_conf)
+                        p.update(s_conf)
+                        parameters.append(p)
+
+                # --- AutoARIMARegressor ---
+                # Common parameters for all ARIMA models
+                arima_common = {
+                    'model__max_p': [5], 'model__max_q': [5],
+                    'model__max_P': [2], 'model__max_Q': [2],
                     'model__stepwise': [True],
                     'model__information_criterion': ['aic'],
-                })
-                
-                # Non-seasonal ARIMA: m doesn't matter, only need one
-                parameters.append({
-                    'model': [AutoARIMARegressor(seasonal=False)],
-                    'model__m': [12],  # value doesn't matter when seasonal=False
-                    'model__max_p': [5],
-                    'model__max_q': [5],
-                    'model__max_P': [2],
-                    'model__max_Q': [2],
-                    'model__stepwise': [True],
-                    'model__information_criterion': ['aic'],
-                })
+                }
+
+                # Seasonal vs Non-seasonal configurations
+                arima_configs = [
+                    {'model__seasonal': [True],  'model__m': [4, 6, 12]},
+                    {'model__seasonal': [False], 'model__m': [12]}, # 12 is dummy
+                ]
+
+                # Generate ARIMA grid
+                for conf in arima_configs:
+                    p = {'model': [AutoARIMARegressor()]}
+                    p.update(arima_common)
+                    p.update(conf)
+                    parameters.append(p)
                 
         # Perform grid search with cross-validation
         scoring = make_scorer(self.scoring_func, greater_is_better=False, response_method=self.response_method)
-        grid_tmp = GridSearchCV(tmp_pipeline, parameters, cv=cv_obj, n_jobs=1, verbose=0, scoring=scoring)
+        grid_tmp = GridSearchCV(tmp_pipeline, parameters, cv=cv_obj, n_jobs=-1, verbose=0, scoring=scoring)
         
-        with warnings.catch_warnings():
-            # Filter specific spurious warnings from Apple Accelerate / NumPy
-            warnings.filterwarnings("ignore", message=".*divide by zero encountered in matmul.*")
-            warnings.filterwarnings("ignore", message=".*overflow encountered in matmul.*")
-            warnings.filterwarnings("ignore", message=".*invalid value encountered in matmul.*")
+        self.fitted_pipeline = grid_tmp.fit(self.X, self.y)
             
-            self.fitted_pipeline = grid_tmp.fit(self.X, self.y)
 
     def get_feature_importance_scores(
         self, 
