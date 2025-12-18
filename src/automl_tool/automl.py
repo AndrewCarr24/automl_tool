@@ -210,7 +210,7 @@ class AutoML:
         Flag controlling inclusion of univariate forecasting models when time series.
     """
     
-    def __init__(self, X: pd.DataFrame, y: pd.Series, outcome: str, time_series: bool = False, only_sklearn_models: bool = False) -> None:
+    def __init__(self, X: pd.DataFrame, y: pd.Series, outcome: str, time_series: bool = False, only_sklearn_models: bool = True) -> None:
         self.X = X
         self.y = y
         self.target = outcome
