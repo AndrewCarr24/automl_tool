@@ -407,7 +407,7 @@ class PlotTools:
         for idx, idx_arr in enumerate(ts_splt.split(X_train)):
 
             fig, ax = plt.subplots(figsize=(20, 5))
-            plt.style.use("opinionated_rc")
+            plt.style.use(_STYLE_PATH)
 
             X_splt = X_train.iloc[idx_arr[1]]
             splt1_preds = fitted_pipeline.best_estimator_.predict(X_splt)
